@@ -1,0 +1,66 @@
+services:
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    networks:
+      - app-network
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend/storage:/app/storage
+      - whisper-cache:/root/.cache/huggingface
+    env_file:
+      - ./backend/.env
+    depends_on:
+      - redis
+    networks:
+      - app-network
+
+  worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    command: celery -A tasks worker --loglevel=info --pool=solo --concurrency=1
+    restart: unless-stopped
+    volumes:
+      - ./backend/storage:/app/storage
+      - whisper-cache:/root/.cache/huggingface
+    env_file:
+      - ./backend/.env
+    depends_on:
+      - redis
+    networks:
+      - app-network
+    # ── GPU passthrough (NVIDIA) ────────────────────────────
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    networks:
+      - app-network
+
+volumes:
+  whisper-cache:
+
+networks:
+  app-network:
+    driver: bridge

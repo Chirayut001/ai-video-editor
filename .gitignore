@@ -1,0 +1,66 @@
+# ─── Secrets / Sensitive ────────────────────────────────────────────────────
+.env
+.env.local
+.env.*.local
+*.key
+*.pem
+secrets/
+
+# ─── Python ─────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# ─── Node / Frontend ────────────────────────────────────────────────────────
+node_modules/
+dist/
+build/
+.vite/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# ─── User data / Storage ────────────────────────────────────────────────────
+backend/storage/
+storage/
+*.mp4
+*.mov
+*.mkv
+*.avi
+*.webm
+*.m4v
+*.wav
+*.mp3
+*.flac
+
+# ─── IDE / Editor ───────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# ─── OS / Temporary ─────────────────────────────────────────────────────────
+.cache/
+.tmp/
+tmp/
+temp/
+
+# ─── Docker / Build artifacts ───────────────────────────────────────────────
+*.tar
+docker_data.vhdx
+
+# ─── Test files ─────────────────────────────────────────────────────────────
+your_test_video.mp4
+test_*.mp4
+sample_*.mp4

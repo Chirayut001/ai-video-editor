@@ -1,0 +1,11 @@
+fastapi
+uvicorn
+celery>=5.5,<5.6
+kombu>=5.5,<5.6
+redis>=4.5.2,<6.0
+async-timeout>=4.0.2
+python-dotenv
+google-genai
+faster-whisper>=1.0.0
+python-multipart
+pythainlp>=5.0.0
