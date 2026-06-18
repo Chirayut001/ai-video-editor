@@ -1,21 +1,24 @@
 import subprocess
 import os
 import shutil
-from core.srt_utils import generate_srt_from_transcript
+from core.srt_utils import generate_srt_from_transcript, write_srt_from_phrases
 
 def extract_clean_audio(video_path, audio_output_path):
     """
-    สกัดเสียงพร้อมลดเสียงรบกวน (Noise Reduction) 
-    เพื่อให้ AI (Whisper/Gemini) วิเคราะห์เนื้อหาได้แม่นยำขึ้น
+    สกัดเสียง + ปรับคุณภาพให้ Whisper ฟังได้แม่นขึ้น:
+    - afftdn:    ลด background noise (FFT denoise)
+    - loudnorm:  Normalize ระดับเสียง (EBU R128 standard)
+    - highpass:  ตัดเสียงต่ำ 80Hz (เสียง rumble)
+    - lowpass:   ตัดเสียงสูง 12kHz (เสียง hiss)
     """
-    print(f"🎬 Extracting audio: {video_path} -> {audio_output_path}")
+    print(f"🎬 Extracting audio (with loudness norm): {video_path} -> {audio_output_path}")
     cmd = [
         'ffmpeg', '-y',
         '-i', video_path,
-        '-vn',                         # ไม่เอาวิดีโอ
-        '-af', 'afftdn',               # ใส่ฟิลเตอร์ลดเสียงรบกวน (สำคัญมากสำหรับคลิปเสียงนอกสถานที่)
-        '-ar', '16000',                # Sample rate 16k (มาตรฐาน AI)
-        '-ac', '1',                    # Mono (ลดขนาดไฟล์)
+        '-vn',
+        '-af', 'afftdn,loudnorm=I=-16:TP=-1.5:LRA=11,highpass=f=80,lowpass=f=12000',
+        '-ar', '16000',
+        '-ac', '1',
         audio_output_path
     ]
     subprocess.run(cmd, check=True)
@@ -40,10 +43,11 @@ def split_video(input_path, output_dir, segment_time=900):
     subprocess.run(cmd, check=True)
 
 def edit_and_merge_video(video_path, highlights_json, output_path, job_dir,
-                          transcript=None, burn_subtitle=False):
+                          transcript=None, burn_subtitle=False, edited_phrases=None):
     """
     หัวใจหลัก: ตัดวิดีโอตามช่วงเวลาที่ AI เลือก และนำมารวมกันเป็นไฟล์เดียว
     ถ้า burn_subtitle=True + transcript: ใส่ subtitle ลงไปด้วย (style เล็กแบบมาตรฐาน 16:9)
+    edited_phrases: ถ้าให้มา → ใช้แทน transcript (user แก้แล้ว)
     """
     print("\n" + "="*50)
     print(f"🎬 STARTING VIDEO EDITING PROCESS (burn_subtitle={burn_subtitle})")
@@ -116,9 +120,12 @@ def edit_and_merge_video(video_path, highlights_json, output_path, job_dir,
         subprocess.run(merge_cmd, check=True, cwd=temp_dir)
 
     # 4. Burn subtitle (ถ้าเลือก) → re-encode ลง output_path
-    if burn_subtitle and transcript:
+    if burn_subtitle and (transcript or edited_phrases):
         srt_path = os.path.abspath(os.path.join(temp_dir, "subs.srt"))
-        entry_count = generate_srt_from_transcript(transcript, highlights_json, srt_path)
+        if edited_phrases is not None:
+            entry_count = write_srt_from_phrases(edited_phrases, srt_path)
+        else:
+            entry_count = generate_srt_from_transcript(transcript, highlights_json, srt_path)
 
         if entry_count > 0:
             print(f"📝 [STANDARD] Burning {entry_count} subtitle entries...")
@@ -203,12 +210,12 @@ def verify_output_dimensions(video_path: str) -> tuple[int, int, str]:
 
 
 def render_tiktok_video(video_path, keep_segments, transcript, output_path, job_dir,
-                        target_length=60, burn_subtitle=True):
+                        target_length=60, burn_subtitle=True, edited_phrases=None):
     """
     TikTok rendering pipeline:
     1. Cut each segment + scale-and-pad to 1080x1920 (9:16) ใน pass เดียว
     2. Concat ทุก parts
-    3. (option) Generate SRT จาก transcript + burn-in
+    3. (option) Generate SRT จาก transcript + burn-in (หรือใช้ edited_phrases ถ้าให้มา)
     """
     print("\n" + "=" * 50)
     print(f"🎬 STARTING TIKTOK RENDER (target ≤ {target_length}s, subtitle={burn_subtitle})")
@@ -274,9 +281,12 @@ def render_tiktok_video(video_path, keep_segments, transcript, output_path, job_
     ], check=True, cwd=temp_dir)
 
     # ── Step 3: Burn subtitle (optional) ─────────────────────────────────────
-    if burn_subtitle and transcript:
+    if burn_subtitle and (transcript or edited_phrases):
         srt_path = os.path.abspath(os.path.join(temp_dir, "subs.srt"))
-        entry_count = generate_srt_from_transcript(transcript, keep_segments, srt_path)
+        if edited_phrases is not None:
+            entry_count = write_srt_from_phrases(edited_phrases, srt_path)
+        else:
+            entry_count = generate_srt_from_transcript(transcript, keep_segments, srt_path)
 
         if entry_count == 0:
             print("⚠️ No subtitle entries generated, skipping burn-in.")

@@ -64,3 +64,10 @@ docker_data.vhdx
 your_test_video.mp4
 test_*.mp4
 sample_*.mp4
+
+# ─── Transcript / Audio cache ───────────────────────────────────────────────
+transcript_cache/
+backend/transcript_cache/
+
+# ─── Debug / Dev-only scripts ───────────────────────────────────────────────
+backend/check_models.py

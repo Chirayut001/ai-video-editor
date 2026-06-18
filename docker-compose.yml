@@ -15,6 +15,7 @@ services:
     volumes:
       - ./backend/storage:/app/storage
       - whisper-cache:/root/.cache/huggingface
+      - transcript-cache:/app/transcript_cache
     env_file:
       - ./backend/.env
     depends_on:
@@ -31,8 +32,11 @@ services:
     volumes:
       - ./backend/storage:/app/storage
       - whisper-cache:/root/.cache/huggingface
+      - transcript-cache:/app/transcript_cache
     env_file:
       - ./backend/.env
+    environment:
+      - WHISPER_BATCH_SIZE=4
     depends_on:
       - redis
     networks:
@@ -60,6 +64,7 @@ services:
 
 volumes:
   whisper-cache:
+  transcript-cache:
 
 networks:
   app-network:

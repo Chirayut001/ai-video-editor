@@ -10,7 +10,8 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from celery.result import AsyncResult
 
-from tasks import process_video_task
+from pydantic import BaseModel
+from tasks import process_video_task, render_only_task
 
 # ── Constants / Limits ───────────────────────────────────────────────────────
 MAX_FILE_SIZE_MB = 2048               # 2GB upload limit
@@ -21,6 +22,8 @@ MIN_TARGET_LENGTH = 10
 MAX_TARGET_LENGTH = 600
 JOB_RETENTION_DAYS = 7                 # ลบ job เก่ากว่า 7 วัน
 UUID_PATTERN = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", re.I)
+# Render task_id format = "{uuid}-render" — รับด้วยใน /status (ของ /preview /render /download ใช้ UUID_PATTERN)
+UUID_OR_TASK_PATTERN = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}(-render)?$", re.I)
 SAFE_FILENAME_RE = re.compile(r"[^A-Za-z0-9._\-]")
 
 STORAGE_DIR = "storage"
@@ -91,6 +94,8 @@ async def upload_video(
     output_mode: str = Form("standard"),
     target_length: int = Form(60),
     burn_subtitle: bool = Form(False),
+    preview_mode: bool = Form(False),
+    preset_id: str = Form(""),
 ):
     # ── Input validation ────────────────────────────────────────────────────
     prompt = (prompt or "").strip()
@@ -146,11 +151,11 @@ async def upload_video(
         print(f"✅ File saved: {video_path} ({written / 1024 / 1024:.1f} MB)")
 
         process_video_task.apply_async(
-            args=[job_id, video_path, prompt, output_mode, target_length, burn_subtitle],
+            args=[job_id, video_path, prompt, output_mode, target_length, burn_subtitle, preview_mode, preset_id],
             task_id=job_id,
         )
 
-        return {"job_id": job_id}
+        return {"job_id": job_id, "preview_mode": preview_mode}
 
     except HTTPException:
         raise
@@ -162,7 +167,8 @@ async def upload_video(
 @app.get("/status/{job_id}")
 async def get_status(job_id: str):
     # ── Validate jobId format กัน frontend ติด PENDING บน id ไม่ถูกต้อง ─────
-    if not UUID_PATTERN.match(job_id):
+    # รองรับทั้ง UUID เดิม + "{uuid}-render" สำหรับ render task
+    if not UUID_OR_TASK_PATTERN.match(job_id):
         raise HTTPException(status_code=400, detail="job_id ผิดรูปแบบ")
 
     try:
@@ -220,6 +226,131 @@ async def download_output(job_id: str):
     if os.path.exists(file_path):
         return FileResponse(path=file_path, filename=target_file, media_type="video/mp4")
     raise HTTPException(status_code=404, detail="ไม่พบไฟล์วิดีโอผลลัพธ์")
+
+
+MAX_SUBTITLE_PHRASES = 2000
+MAX_PHRASE_TEXT_LEN = 200
+
+
+class RenderRequest(BaseModel):
+    segments: list[dict]   # [{"start": float, "end": float, ...}]
+    edited_phrases: list[dict] | None = None  # [{"start": float, "end": float, "text": str}] (optional)
+
+
+def _validate_phrases(phrases: list[dict]) -> list[dict]:
+    """Validate + sanitize phrases ที่ user ส่งมาจาก /subtitle หรือ /render"""
+    if len(phrases) > MAX_SUBTITLE_PHRASES:
+        raise HTTPException(status_code=400, detail=f"subtitle phrases เกิน {MAX_SUBTITLE_PHRASES}")
+    out = []
+    for p in phrases:
+        try:
+            start = float(p.get("start", 0))
+            end = float(p.get("end", 0))
+        except (TypeError, ValueError):
+            continue
+        text = str(p.get("text") or "").strip()
+        if not text or end <= start:
+            continue
+        if len(text) > MAX_PHRASE_TEXT_LEN:
+            text = text[:MAX_PHRASE_TEXT_LEN]
+        out.append({
+            "start": round(start, 3),
+            "end": round(end, 3),
+            "text": text,
+        })
+    return out
+
+
+@app.post("/render/{job_id}")
+async def render_preview(job_id: str, body: RenderRequest):
+    """Render วิดีโอจาก preview ที่ user เลือก segments แล้ว"""
+    if not UUID_PATTERN.match(job_id):
+        raise HTTPException(status_code=400, detail="job_id ผิดรูปแบบ")
+
+    preview_file = os.path.join(STORAGE_DIR, job_id, "preview.json")
+    if not os.path.exists(preview_file):
+        raise HTTPException(status_code=404, detail="ไม่พบ preview — ต้องเรียก /upload?preview_mode=true ก่อน")
+
+    if not body.segments:
+        raise HTTPException(status_code=400, detail="ต้องเลือก segments อย่างน้อย 1 ช่วง")
+
+    # Validate segments
+    cleaned = []
+    for s in body.segments:
+        start = float(s.get("start", 0))
+        end = float(s.get("end", 0))
+        if end <= start:
+            continue
+        cleaned.append({"start": round(start, 2), "end": round(end, 2)})
+
+    if not cleaned:
+        raise HTTPException(status_code=400, detail="ไม่มี segment ที่ valid")
+
+    # Validate edited_phrases (optional)
+    edited_phrases = None
+    if body.edited_phrases is not None:
+        edited_phrases = _validate_phrases(body.edited_phrases)
+
+    # ใช้ job_id เดิมเป็น task_id ใหม่ → frontend poll endpoint เดิมได้
+    new_task_id = f"{job_id}-render"
+    render_only_task.apply_async(
+        args=[job_id, cleaned, edited_phrases],
+        task_id=new_task_id,
+    )
+    return {"task_id": new_task_id, "job_id": job_id}
+
+
+class SubtitleUpdateRequest(BaseModel):
+    phrases: list[dict]   # [{"start": float, "end": float, "text": str}]
+
+
+@app.get("/subtitle/{job_id}")
+async def get_subtitle(job_id: str):
+    """ดึง subtitle phrases ปัจจุบันที่ user เห็น (auto-generated หรือที่ user แก้แล้ว)"""
+    if not UUID_PATTERN.match(job_id):
+        raise HTTPException(status_code=400, detail="job_id ผิดรูปแบบ")
+    preview_file = os.path.join(STORAGE_DIR, job_id, "preview.json")
+    if not os.path.exists(preview_file):
+        raise HTTPException(status_code=404, detail="ไม่พบ preview")
+    import json as _json
+    with open(preview_file, "r", encoding="utf-8") as f:
+        data = _json.load(f)
+    return {"phrases": data.get("subtitle_phrases", [])}
+
+
+@app.post("/subtitle/{job_id}")
+async def save_subtitle(job_id: str, body: SubtitleUpdateRequest):
+    """บันทึก subtitle phrases ที่ user แก้แล้ว ลง preview.json"""
+    if not UUID_PATTERN.match(job_id):
+        raise HTTPException(status_code=400, detail="job_id ผิดรูปแบบ")
+    preview_file = os.path.join(STORAGE_DIR, job_id, "preview.json")
+    if not os.path.exists(preview_file):
+        raise HTTPException(status_code=404, detail="ไม่พบ preview")
+
+    cleaned = _validate_phrases(body.phrases or [])
+
+    import json as _json
+    with open(preview_file, "r", encoding="utf-8") as f:
+        data = _json.load(f)
+    data["subtitle_phrases"] = cleaned
+    with open(preview_file, "w", encoding="utf-8") as f:
+        _json.dump(data, f, ensure_ascii=False, indent=2)
+    return {"saved": len(cleaned)}
+
+
+@app.get("/preview/{job_id}")
+async def get_preview(job_id: str):
+    """ดึงข้อมูล preview ที่ AI วิเคราะห์แล้ว"""
+    if not UUID_PATTERN.match(job_id):
+        raise HTTPException(status_code=400, detail="job_id ผิดรูปแบบ")
+
+    preview_file = os.path.join(STORAGE_DIR, job_id, "preview.json")
+    if not os.path.exists(preview_file):
+        raise HTTPException(status_code=404, detail="ไม่พบ preview")
+
+    import json as _json
+    with open(preview_file, "r", encoding="utf-8") as f:
+        return _json.load(f)
 
 
 @app.get("/health")

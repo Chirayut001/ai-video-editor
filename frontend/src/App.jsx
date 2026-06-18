@@ -2,13 +2,28 @@ import React, { useState, useEffect } from 'react';
 import { Sparkles, Download, RotateCcw } from 'lucide-react';
 import UploadScreen from './components/UploadScreen';
 import Processing from './components/Processing';
+import PreviewScreen from './components/PreviewScreen';
+import SubtitleEditScreen from './components/SubtitleEditScreen';
 import { API_URL } from './config';
 
-const STORAGE_KEYS = { JOB: 'aive_job_id', VIDEO: 'aive_video_url', SUMMARY: 'aive_summary' };
+const STORAGE_KEYS = {
+  JOB: 'aive_job_id',
+  VIDEO: 'aive_video_url',
+  SUMMARY: 'aive_summary',
+  PHASE: 'aive_phase',     // "processing" | "preview" | "editing" | "rendering" | "done"
+  RENDER_TASK: 'aive_render_task',
+  SELECTED_SEGS: 'aive_selected_segments',
+};
 
 function App() {
   const [jobId, setJobId] = useState(() => localStorage.getItem(STORAGE_KEYS.JOB));
   const [videoUrl, setVideoUrl] = useState(() => localStorage.getItem(STORAGE_KEYS.VIDEO));
+  const [phase, setPhase] = useState(() => localStorage.getItem(STORAGE_KEYS.PHASE) || null);
+  const [renderTaskId, setRenderTaskId] = useState(() => localStorage.getItem(STORAGE_KEYS.RENDER_TASK));
+  const [selectedSegs, setSelectedSegs] = useState(() => {
+    try { return JSON.parse(localStorage.getItem(STORAGE_KEYS.SELECTED_SEGS) || 'null'); }
+    catch { return null; }
+  });
   const [editSummary, setEditSummary] = useState(() => {
     try { return JSON.parse(localStorage.getItem(STORAGE_KEYS.SUMMARY) || 'null'); }
     catch { return null; }
@@ -29,16 +44,61 @@ function App() {
     else localStorage.removeItem(STORAGE_KEYS.SUMMARY);
   }, [editSummary]);
 
-  const handleComplete = (url, summary) => {
-    setVideoUrl(url);
+  useEffect(() => {
+    if (phase) localStorage.setItem(STORAGE_KEYS.PHASE, phase);
+    else localStorage.removeItem(STORAGE_KEYS.PHASE);
+  }, [phase]);
+
+  useEffect(() => {
+    if (renderTaskId) localStorage.setItem(STORAGE_KEYS.RENDER_TASK, renderTaskId);
+    else localStorage.removeItem(STORAGE_KEYS.RENDER_TASK);
+  }, [renderTaskId]);
+
+  useEffect(() => {
+    if (selectedSegs) localStorage.setItem(STORAGE_KEYS.SELECTED_SEGS, JSON.stringify(selectedSegs));
+    else localStorage.removeItem(STORAGE_KEYS.SELECTED_SEGS);
+  }, [selectedSegs]);
+
+  // Callback จาก Processing — ทำงาน 2 กรณี
+  const handleComplete = (urlOrPreview, summary) => {
+    // ถ้า data.mode = "preview" → ไปหน้า preview
+    if (urlOrPreview === '__PREVIEW__') {
+      setPhase('preview');
+      return;
+    }
+    setVideoUrl(urlOrPreview);
+    setPhase('done');
     if (summary) setEditSummary(summary);
+  };
+
+  // จาก PreviewScreen — กดยืนยัน render
+  const handleRendering = (newTaskId) => {
+    setRenderTaskId(newTaskId);
+    setPhase('rendering');
+  };
+
+  // จาก PreviewScreen — กดถัดไปแก้ subtitle (เมื่อ burn_subtitle=true)
+  const handleEditSubtitle = (segments) => {
+    setSelectedSegs(segments);
+    setPhase('editing');
+  };
+
+  const handleBackToPreview = () => {
+    setSelectedSegs(null);
+    setPhase('preview');
   };
 
   const handleReset = () => {
     setJobId(null);
     setVideoUrl(null);
     setEditSummary(null);
+    setPhase(null);
+    setRenderTaskId(null);
+    setSelectedSegs(null);
   };
+
+  // Determine active jobId for Processing component
+  const activeTaskId = phase === 'rendering' ? renderTaskId : jobId;
 
   const jobIdShort = videoUrl ? videoUrl.split('/')[0] : '';
 
@@ -70,11 +130,32 @@ function App() {
       {/* ── Main ───────────────────────────────────────── */}
       <main className="flex-1 w-full max-w-3xl mx-auto px-4 py-8 sm:py-12">
         {!jobId && !videoUrl && (
-          <UploadScreen onUploadSuccess={(id) => setJobId(id)} />
+          <UploadScreen onUploadSuccess={(id, mode) => {
+            setJobId(id);
+            setPhase(mode === 'preview' ? 'processing' : 'processing');
+          }} />
         )}
 
-        {jobId && !videoUrl && (
-          <Processing jobId={jobId} onComplete={handleComplete} onCancel={handleReset} />
+        {jobId && !videoUrl && (phase === 'processing' || phase === 'rendering') && (
+          <Processing jobId={activeTaskId} onComplete={handleComplete} onCancel={handleReset} />
+        )}
+
+        {jobId && !videoUrl && phase === 'preview' && (
+          <PreviewScreen
+            jobId={jobId}
+            onRendering={handleRendering}
+            onCancel={handleReset}
+            onEditSubtitle={handleEditSubtitle}
+          />
+        )}
+
+        {jobId && !videoUrl && phase === 'editing' && selectedSegs && (
+          <SubtitleEditScreen
+            jobId={jobId}
+            selectedSegments={selectedSegs}
+            onRendering={handleRendering}
+            onBack={handleBackToPreview}
+          />
         )}
 
         {videoUrl && (

@@ -53,11 +53,19 @@ const Processing = ({ jobId, onComplete, onCancel }) => {
         if (data.status === 'SUCCESS') {
           stopPolling();
           setStatus('SUCCESS');
-          setMessage('✨ ตัดต่อเสร็จเรียบร้อยแล้ว!');
           setProgress(100);
-          const finalUrl = data.result?.output_url;
-          if (finalUrl) {
-            onCompleteRef.current(finalUrl, data.result?.edit_summary);
+          const mode = data.result?.mode;
+          if (mode === 'preview') {
+            // Preview mode: ไม่ render — แจ้ง parent ไปหน้า preview
+            setMessage('✨ วิเคราะห์เสร็จ — เปิด preview');
+            onCompleteRef.current('__PREVIEW__');
+          } else {
+            // Final render เสร็จ
+            setMessage('✨ ตัดต่อเสร็จเรียบร้อยแล้ว!');
+            const finalUrl = data.result?.output_url;
+            if (finalUrl) {
+              onCompleteRef.current(finalUrl, data.result?.edit_summary);
+            }
           }
         } else if (data.status === 'FAILURE') {
           stopPolling();

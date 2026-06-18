@@ -35,6 +35,7 @@ const UploadScreen = ({ onUploadSuccess }) => {
   const [loading, setLoading] = useState(false);
   const [targetLength, setTargetLength] = useState(60);
   const [burnSubtitle, setBurnSubtitle] = useState(false);
+  const [previewMode, setPreviewMode] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
 
   const isTiktokMode = activePresetId === 'tiktok';
@@ -95,6 +96,8 @@ const UploadScreen = ({ onUploadSuccess }) => {
     formData.append('output_mode', isTiktokMode ? 'tiktok' : 'standard');
     formData.append('target_length', String(targetLength));
     formData.append('burn_subtitle', String(burnSubtitle));
+    formData.append('preview_mode', String(previewMode));
+    formData.append('preset_id', activePresetId || '');
 
     const uploadUrl = `${API_URL}/upload`;
     try {
@@ -107,7 +110,7 @@ const UploadScreen = ({ onUploadSuccess }) => {
           console.log(`⏳ Upload: ${percent}%`);
         },
       });
-      onUploadSuccess(response.data.job_id);
+      onUploadSuccess(response.data.job_id, previewMode ? 'preview' : 'final');
     } catch (error) {
       let msg = 'เชื่อมต่อเซิร์ฟเวอร์ไม่ได้';
       if (error.response) {
@@ -299,6 +302,27 @@ const UploadScreen = ({ onUploadSuccess }) => {
             <p className="font-semibold text-slate-800">📝Subtitle อัตโนมัติ</p>
             <p className="text-xs text-slate-500 mt-0.5">
               สร้างคำบรรยายจากเสียงพูด ลงในวิดีโอ
+            </p>
+          </div>
+        </label>
+
+        {/* Preview Mode */}
+        <label className={`flex items-start gap-3 mt-3 p-3.5 rounded-xl border cursor-pointer transition-all ${
+          previewMode ? 'border-violet-400 bg-violet-50/50' : 'border-slate-200 hover:bg-slate-50'
+        }`}>
+          <input
+            type="checkbox"
+            checked={previewMode}
+            onChange={(e) => setPreviewMode(e.target.checked)}
+            className="mt-0.5 rounded accent-violet-600"
+          />
+          <div className="flex-1 text-sm">
+            <p className="font-semibold text-slate-800">
+              👁️ Preview ก่อนตัดต่อจริง
+              <span className="ml-1 px-1.5 py-0.5 bg-violet-100 text-violet-700 rounded text-[10px] font-medium">NEW</span>
+            </p>
+            <p className="text-xs text-slate-500 mt-0.5">
+              ดูช่วงที่ AI เลือกก่อน แล้วยืนยัน/ยกเลิกได้รายช่วง (แม่นยำขึ้น)
             </p>
           </div>
         </label>
