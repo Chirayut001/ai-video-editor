@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
-import { Sparkles, Download, RotateCcw, Trash2 } from 'lucide-react';
+import { Sparkles, Download, RotateCcw } from 'lucide-react';
 import UploadScreen from './components/UploadScreen';
 import Processing from './components/Processing';
 import PreviewScreen from './components/PreviewScreen';
@@ -96,18 +95,6 @@ function App() {
     setPhase(null);
     setRenderTaskId(null);
     setSelectedSegs(null);
-  };
-
-  // PDPA — ลบข้อมูลของ job นี้ออกจากเซิร์ฟเวอร์ทันที แล้วรีเซ็ต
-  const handleDeleteData = async () => {
-    if (!window.confirm('ลบวิดีโอและข้อมูลทั้งหมดของงานนี้ออกจากเซิร์ฟเวอร์?')) return;
-    const id = jobId || (videoUrl ? videoUrl.split('/')[0] : '');
-    try {
-      if (id) await axios.delete(`${API_URL}/job/${id}`);
-    } catch (e) {
-      console.error('delete failed', e);   // best-effort — รีเซ็ตต่อไป
-    }
-    handleReset();
   };
 
   // Determine active jobId for Processing component
@@ -210,17 +197,6 @@ function App() {
               >
                 <RotateCcw className="h-5 w-5" />
                 ตัดต่อใหม่
-              </button>
-            </div>
-
-            {/* PDPA — ลบข้อมูลทันที */}
-            <div className="text-center pt-1">
-              <button
-                onClick={handleDeleteData}
-                className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-500 hover:text-red-600 transition-colors"
-              >
-                <Trash2 className="h-3.5 w-3.5" />
-                ลบวิดีโอและข้อมูลของฉันออกจากเซิร์ฟเวอร์
               </button>
             </div>
           </div>

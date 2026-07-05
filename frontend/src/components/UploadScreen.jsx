@@ -40,7 +40,6 @@ const UploadScreen = ({ onUploadSuccess }) => {
   const [burnSubtitle, setBurnSubtitle] = useState(false);
   const [previewMode, setPreviewMode] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
-  const [consent, setConsent] = useState(false);   // PDPA — ยินยอมก่อนอัปโหลด
 
   const isTiktokMode = activePresetId === 'tiktok';
 
@@ -97,7 +96,6 @@ const UploadScreen = ({ onUploadSuccess }) => {
   const handleUpload = async () => {
     if (!file) return alert('กรุณาเลือกไฟล์วิดีโอก่อน');
     if (!prompt.trim()) return alert('กรุณาเลือก preset หรือพิมพ์คำสั่งให้ AI');
-    if (!consent) return alert('กรุณายอมรับเงื่อนไขความเป็นส่วนตัวก่อนอัปโหลด');
 
     setLoading(true);
     const formData = new FormData();
@@ -338,33 +336,12 @@ const UploadScreen = ({ onUploadSuccess }) => {
         </label>
       </section>
 
-      {/* PDPA — Privacy notice + consent */}
-      <section className="bg-slate-50 border border-slate-200 rounded-xl p-4 text-xs text-slate-600 leading-relaxed">
-        <p className="font-semibold text-slate-700 mb-1">🔒 ความเป็นส่วนตัว (PDPA)</p>
-        <p>
-          เมื่ออัปโหลด ไฟล์วิดีโอของคุณจะถูกเก็บชั่วคราวบนเซิร์ฟเวอร์ และ
-          <strong> ข้อความจากเสียง (transcript) จะถูกส่งไปประมวลผลที่ Google Gemini</strong>{' '}
-          ระบบจะลบไฟล์อัตโนมัติภายในไม่กี่วัน หรือคุณกดลบเองได้ทันทีหลังเสร็จ
-        </p>
-        <label className="flex items-start gap-2.5 mt-3 cursor-pointer">
-          <input
-            type="checkbox"
-            checked={consent}
-            onChange={(e) => setConsent(e.target.checked)}
-            className="mt-0.5 rounded accent-blue-600"
-          />
-          <span className="text-slate-700">
-            ฉันรับทราบและยินยอมให้ประมวลผลไฟล์และเสียงตามที่ระบุข้างต้น
-          </span>
-        </label>
-      </section>
-
       {/* Submit */}
       <button
         onClick={handleUpload}
-        disabled={loading || !consent}
+        disabled={loading}
         className={`w-full flex items-center justify-center gap-2 py-4 rounded-2xl font-semibold text-white shadow-lg transition-all ${
-          loading || !consent
+          loading
             ? 'bg-slate-400 cursor-not-allowed'
             : 'bg-gradient-to-r from-blue-600 to-violet-600 hover:shadow-xl hover:shadow-blue-500/30 active:scale-[0.98]'
         }`}
