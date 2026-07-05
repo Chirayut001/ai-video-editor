@@ -1,5 +1,6 @@
 import os
 import json
+import time
 from celery import Celery
 from celery.exceptions import Ignore
 from core.ffmpeg_utils import extract_clean_audio, edit_and_merge_video, render_tiktok_video
@@ -22,6 +23,29 @@ celery_app.conf.update(
 
 PREVIEW_FILENAME = "preview.json"
 FINAL_VIDEO_NAME = "final_summary.mp4"
+# marker บอกว่า job dir นี้กำลังถูกประมวลผล — main.py cleanup จะข้าม dir ที่มี marker สด
+# (กัน race ที่ cleanup ลบ dir กลางคันขณะ worker ทำงาน)
+PROCESSING_MARKER = ".processing"
+
+
+def _mark_processing(job_dir: str) -> None:
+    """เขียน marker .processing (best-effort) ตอนเริ่ม task"""
+    try:
+        os.makedirs(job_dir, exist_ok=True)
+        with open(os.path.join(job_dir, PROCESSING_MARKER), "w") as f:
+            f.write(str(time.time()))
+    except Exception as e:
+        print(f"⚠️ mark_processing failed for {job_dir}: {e}")
+
+
+def _clear_processing(job_dir: str) -> None:
+    """ลบ marker .processing ตอน task จบ (สำเร็จหรือ fail ก็ตาม)"""
+    try:
+        os.remove(os.path.join(job_dir, PROCESSING_MARKER))
+    except FileNotFoundError:
+        pass
+    except Exception as e:
+        print(f"⚠️ clear_processing failed for {job_dir}: {e}")
 
 
 def _preview_path(job_dir: str) -> str:
@@ -52,6 +76,7 @@ def process_video_task(self, job_id, video_path, user_prompt,
     audio_path = os.path.join(job_dir, "full_audio.wav")
     final_output = os.path.join(job_dir, FINAL_VIDEO_NAME)
 
+    _mark_processing(job_dir)   # กัน cleanup ลบ dir กลางคัน
     try:
         # ── Step 1: Extract audio ────────────────────────────────────────────
         if os.path.exists(audio_path):
@@ -159,6 +184,9 @@ def process_video_task(self, job_id, video_path, user_prompt,
         })
         raise Ignore()
 
+    finally:
+        _clear_processing(job_dir)
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # TASK 2: Render-only (ใช้ปริ่ม preview เพื่อ render ด้วย segments ที่ user เลือก)
@@ -171,8 +199,9 @@ def render_only_task(self, job_id, selected_segments, edited_phrases=None):
     selected_segments: [{"start": .., "end": ..}, ...] ที่ user approve
     edited_phrases:    [{"start": .., "end": .., "text": ...}, ...] ถ้า user แก้ subtitle (optional)
     """
+    job_dir = f"storage/{job_id}"
+    _mark_processing(job_dir)   # กัน cleanup ลบ dir กลางคัน
     try:
-        job_dir = f"storage/{job_id}"
         preview = _load_preview(job_dir)
 
         video_path = preview["video_path"]
@@ -230,6 +259,9 @@ def render_only_task(self, job_id, selected_segments, edited_phrases=None):
             'exc_type': type(e).__name__, 'exc_message': error_msg,
         })
         raise Ignore()
+
+    finally:
+        _clear_processing(job_dir)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
