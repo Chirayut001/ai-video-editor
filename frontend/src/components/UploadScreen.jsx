@@ -56,6 +56,8 @@ const UploadScreen = ({ onUploadSuccess }) => {
   const [burnSubtitle, setBurnSubtitle] = useState(false);
   const [previewMode, setPreviewMode] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);   // % อัปโหลดจริง
+  const [error, setError] = useState('');                    // error inline (แทน alert)
 
   const isTiktokMode = activePresetId === 'tiktok';
 
@@ -80,14 +82,15 @@ const UploadScreen = ({ onUploadSuccess }) => {
   const pickFile = (selectedFile) => {
     if (!selectedFile) return;
     if (!selectedFile.type.startsWith('video/')) {
-      alert('กรุณาเลือกไฟล์วิดีโอเท่านั้น');
+      setError('กรุณาเลือกไฟล์วิดีโอเท่านั้น');
       return;
     }
     if (selectedFile.size > MAX_FILE_MB * 1024 * 1024) {
       const sizeMB = (selectedFile.size / 1024 / 1024).toFixed(0);
-      alert(`ไฟล์ใหญ่เกิน ${MAX_FILE_MB} MB (ไฟล์นี้ ${sizeMB} MB) — กรุณาเลือกไฟล์เล็กลง`);
+      setError(`ไฟล์ใหญ่เกิน ${MAX_FILE_MB} MB (ไฟล์นี้ ${sizeMB} MB) — กรุณาเลือกไฟล์เล็กลง`);
       return;
     }
+    setError('');
     setFile(selectedFile);
     const url = URL.createObjectURL(selectedFile);
     setPreviewUrl(url);
@@ -110,9 +113,11 @@ const UploadScreen = ({ onUploadSuccess }) => {
   }, [previewUrl]);
 
   const handleUpload = async () => {
-    if (!file) return alert('กรุณาเลือกไฟล์วิดีโอก่อน');
-    if (!prompt.trim()) return alert('กรุณาเลือก preset หรือพิมพ์คำสั่งให้ AI');
+    if (!file) return setError('กรุณาเลือกไฟล์วิดีโอก่อน');
+    if (!prompt.trim()) return setError('กรุณาเลือก preset หรือพิมพ์คำสั่งให้ AI');
 
+    setError('');
+    setUploadProgress(0);
     setLoading(true);
     const formData = new FormData();
     formData.append('video', file);
@@ -130,21 +135,18 @@ const UploadScreen = ({ onUploadSuccess }) => {
         timeout: 30 * 60 * 1000,
         onUploadProgress: (e) => {
           const total = e.total || file.size;
-          const percent = Math.round((e.loaded * 100) / total);
-          console.log(`⏳ Upload: ${percent}%`);
+          setUploadProgress(Math.round((e.loaded * 100) / total));
         },
       });
       onUploadSuccess(response.data.job_id, previewMode ? 'preview' : 'final');
-    } catch (error) {
+    } catch (err) {
       let msg = 'เชื่อมต่อเซิร์ฟเวอร์ไม่ได้';
-      if (error.response) {
-        try {
-          msg = error.response.data?.detail || `Server Error ${error.response.status}`;
-        } catch { msg = `Server Error ${error.response.status}`; }
-      } else if (error.code === 'ECONNABORTED') {
+      if (err.response) {
+        msg = err.response.data?.detail || `Server Error ${err.response.status}`;
+      } else if (err.code === 'ECONNABORTED') {
         msg = 'ใช้เวลานานเกินไป (Timeout)';
       }
-      alert(msg);
+      setError(msg);
       setLoading(false);
     }
   };
@@ -352,6 +354,33 @@ const UploadScreen = ({ onUploadSuccess }) => {
         </label>
       </section>
 
+      {/* Inline error (แทน alert) */}
+      {error && (
+        <div className="flex items-start gap-2 bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-sm text-red-700">
+          <span>⚠️</span>
+          <span className="flex-1">{error}</span>
+          <button onClick={() => setError('')} className="text-red-400 hover:text-red-600" aria-label="ปิด">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
+
+      {/* Upload progress bar (โชว์ % จริงตอนอัปโหลดไฟล์ใหญ่) */}
+      {loading && (
+        <div>
+          <div className="flex justify-between text-xs text-slate-500 mb-1">
+            <span>{uploadProgress < 100 ? 'กำลังอัปโหลดวิดีโอ...' : 'อัปโหลดเสร็จ — กำลังเริ่มประมวลผล'}</span>
+            <span className="font-semibold text-slate-700">{uploadProgress}%</span>
+          </div>
+          <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
+            <div
+              className="h-2 rounded-full bg-gradient-to-r from-blue-500 to-violet-600 transition-all duration-200"
+              style={{ width: `${uploadProgress}%` }}
+            />
+          </div>
+        </div>
+      )}
+
       {/* Submit */}
       <button
         onClick={handleUpload}
@@ -368,7 +397,7 @@ const UploadScreen = ({ onUploadSuccess }) => {
               <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" opacity="0.3" />
               <path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
             </svg>
-            กำลังส่งวิดีโอ...
+            {uploadProgress < 100 ? `กำลังส่งวิดีโอ... ${uploadProgress}%` : 'กำลังเริ่มประมวลผล...'}
           </>
         ) : (
           <>

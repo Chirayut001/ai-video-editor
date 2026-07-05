@@ -28,6 +28,7 @@ const Processing = ({ jobId, onComplete, onCancel }) => {
   const [message, setMessage] = useState('🕐 รอคิวประมวลผล');
   const [progress, setProgress] = useState(0);
   const [elapsedSec, setElapsedSec] = useState(0);
+  const [canceling, setCanceling] = useState(false);
   const intervalRef = useRef(null);
   const startTimeRef = useRef(Date.now());
   const onCompleteRef = useRef(onComplete);
@@ -114,6 +115,19 @@ const Processing = ({ jobId, onComplete, onCancel }) => {
     const m = Math.floor(sec / 60);
     const s = sec % 60;
     return `${m}:${s.toString().padStart(2, '0')}`;
+  };
+
+  // ยกเลิกจริง — เรียก backend ให้หยุด task (ไม่ปล่อยกิน GPU ต่อ) แล้วค่อยรีเซ็ต
+  const handleCancel = async () => {
+    if (status === 'FAILURE') return onCancel();   // งาน fail แล้ว ไม่ต้องเรียก cancel
+    stopPolling();
+    setCanceling(true);
+    try {
+      await axios.post(`${API_URL}/cancel/${jobId}`);
+    } catch (e) {
+      console.error('cancel failed', e);   // best-effort — รีเซ็ตต่อไป
+    }
+    onCancel();
   };
 
   const currentStepIdx = STEPS.findIndex(s => progress >= s.progressMin && progress <= s.progressMax);
@@ -206,20 +220,21 @@ const Processing = ({ jobId, onComplete, onCancel }) => {
         )}
       </div>
 
-      {/* Warning */}
+      {/* Info */}
       {!isFailure && !isSuccess && (
-        <div className="bg-amber-50/50 border border-amber-200 rounded-xl p-3 text-xs text-amber-800">
-          ⚠️ <strong>ห้าม refresh</strong> หน้านี้ — วิดีโอ 20 นาที ใช้เวลา 5-10 นาที ระบบจะแสดงผลให้อัตโนมัติ
+        <div className="bg-blue-50/60 border border-blue-200 rounded-xl p-3 text-xs text-blue-800">
+          💡 <strong>refresh หน้าได้</strong> — ระบบจำงานไว้ให้ วิดีโอ 20 นาทีใช้เวลาราว 5–10 นาที แล้วจะแสดงผลอัตโนมัติ
         </div>
       )}
 
       {/* Cancel/Reset button */}
       {(status === 'PROGRESS' || status === 'PENDING' || isFailure) && onCancel && (
         <button
-          onClick={onCancel}
-          className="w-full py-3 rounded-xl font-semibold text-slate-700 bg-white border border-slate-200 hover:bg-slate-50 hover:border-slate-300 transition-all"
+          onClick={handleCancel}
+          disabled={canceling}
+          className="w-full py-3 rounded-xl font-semibold text-slate-700 bg-white border border-slate-200 hover:bg-slate-50 hover:border-slate-300 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
         >
-          {isFailure ? '← กลับไปหน้าแรก' : '✕ ยกเลิก / กลับไปอัปโหลดใหม่'}
+          {isFailure ? '← กลับไปหน้าแรก' : canceling ? 'กำลังยกเลิก...' : '✕ ยกเลิกงาน'}
         </button>
       )}
     </div>

@@ -2,6 +2,7 @@ import os
 import json
 import time
 import shutil
+import redis as _redis
 from celery import Celery
 from celery.schedules import crontab
 from celery.exceptions import Ignore
@@ -69,6 +70,45 @@ def _clear_processing(job_dir: str) -> None:
         pass
     except Exception as e:
         print(f"⚠️ clear_processing failed for {job_dir}: {e}")
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Cooperative cancel — user กด "ยกเลิก" → ตั้ง flag ใน Redis → task abort ที่ checkpoint
+# (ใช้ flag เพราะ --pool=solo revoke(terminate) ไม่ interrupt งานที่รันอยู่กลางคัน)
+# ─────────────────────────────────────────────────────────────────────────────
+_redis_client = _redis.from_url(os.getenv("REDIS_URL", "redis://localhost:6379/0"))
+CANCEL_TTL = 3600   # flag หมดอายุใน 1 ชม. (กันค้าง)
+
+
+class TaskCancelled(Exception):
+    """ยกที่ checkpoint เมื่อ user กด cancel — ทำให้ task หยุดอย่างสะอาด"""
+
+
+def set_cancel_flag(job_id: str) -> None:
+    try:
+        _redis_client.setex(f"cancel:{job_id}", CANCEL_TTL, "1")
+    except Exception as e:
+        print(f"⚠️ set_cancel_flag failed: {e}")
+
+
+def clear_cancel_flag(job_id: str) -> None:
+    try:
+        _redis_client.delete(f"cancel:{job_id}")
+    except Exception:
+        pass
+
+
+def is_cancelled(job_id: str) -> bool:
+    try:
+        return bool(_redis_client.exists(f"cancel:{job_id}"))
+    except Exception:
+        return False
+
+
+def _ckpt(job_id: str) -> None:
+    """checkpoint — ถ้า user กด cancel ให้ abort task ที่ step boundary ถัดไป"""
+    if is_cancelled(job_id):
+        raise TaskCancelled("ยกเลิกโดยผู้ใช้")
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -153,8 +193,10 @@ def process_video_task(self, job_id, video_path, user_prompt,
     audio_path = os.path.join(job_dir, "full_audio.wav")
     final_output = os.path.join(job_dir, FINAL_VIDEO_NAME)
 
-    _mark_processing(job_dir)   # กัน cleanup ลบ dir กลางคัน
+    _mark_processing(job_dir)       # กัน cleanup ลบ dir กลางคัน
+    clear_cancel_flag(job_id)       # เริ่มงานใหม่ = ล้าง flag เก่า (เผื่อ job_id ถูก reuse ตอน render)
     try:
+        _ckpt(job_id)
         # ── Step 1: Extract audio ────────────────────────────────────────────
         if os.path.exists(audio_path):
             print(f"[SKIP] Audio already exists")
@@ -165,6 +207,7 @@ def process_video_task(self, job_id, video_path, user_prompt,
             extract_clean_audio(video_path, audio_path)
 
         # ── Step 2: VAD ───────────────────────────────────────────────────────
+        _ckpt(job_id)
         self.update_state(state='PROGRESS', meta={
             'status': 'Step 2/4: Detecting voice activity...', 'progress': 25
         })
@@ -175,6 +218,7 @@ def process_video_task(self, job_id, video_path, user_prompt,
             voice_segments = None
 
         # ── Step 3: Whisper + Gemini ──────────────────────────────────────────
+        _ckpt(job_id)
         self.update_state(state='PROGRESS', meta={
             'status': 'Step 3/4: Transcribing & AI analyzing...', 'progress': 45
         })
@@ -228,6 +272,7 @@ def process_video_task(self, job_id, video_path, user_prompt,
             }
 
         # ── Step 4: Render ────────────────────────────────────────────────────
+        _ckpt(job_id)
         self.update_state(state='PROGRESS', meta={
             'status': f'Step 4/4: Rendering ({output_mode})...', 'progress': 80
         })
@@ -246,6 +291,11 @@ def process_video_task(self, job_id, video_path, user_prompt,
             }
         }
 
+    except TaskCancelled:
+        print(f"🛑 [CANCELLED] job {job_id} — abort ตาม request ของผู้ใช้")
+        self.update_state(state='REVOKED', meta={'status': 'ยกเลิกแล้ว', 'progress': 0})
+        raise Ignore()
+
     except Exception as e:
         error_msg = str(e)
         is_503 = "503" in error_msg or "UNAVAILABLE" in error_msg
@@ -262,6 +312,7 @@ def process_video_task(self, job_id, video_path, user_prompt,
         raise Ignore()
 
     finally:
+        clear_cancel_flag(job_id)
         _clear_processing(job_dir)
 
 
@@ -278,7 +329,9 @@ def render_only_task(self, job_id, selected_segments, edited_phrases=None):
     """
     job_dir = os.path.join(STORAGE_DIR, job_id)
     _mark_processing(job_dir)   # กัน cleanup ลบ dir กลางคัน
+    clear_cancel_flag(job_id)
     try:
+        _ckpt(job_id)
         preview = _load_preview(job_dir)
 
         video_path = preview["video_path"]
@@ -290,6 +343,7 @@ def render_only_task(self, job_id, selected_segments, edited_phrases=None):
         if not selected_segments:
             raise Exception("ไม่มี segments ที่เลือก")
 
+        _ckpt(job_id)
         self.update_state(state='PROGRESS', meta={
             'status': 'กำลัง render วิดีโอ...', 'progress': 50
         })
@@ -328,6 +382,11 @@ def render_only_task(self, job_id, selected_segments, edited_phrases=None):
             }
         }
 
+    except TaskCancelled:
+        print(f"🛑 [RENDER CANCELLED] job {job_id}")
+        self.update_state(state='REVOKED', meta={'status': 'ยกเลิกแล้ว', 'progress': 0})
+        raise Ignore()
+
     except Exception as e:
         error_msg = str(e)
         print(f"[RENDER FAILURE] {error_msg}")
@@ -338,6 +397,7 @@ def render_only_task(self, job_id, selected_segments, edited_phrases=None):
         raise Ignore()
 
     finally:
+        clear_cancel_flag(job_id)
         _clear_processing(job_dir)
 
 

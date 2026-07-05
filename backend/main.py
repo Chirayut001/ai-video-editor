@@ -15,7 +15,10 @@ from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 
 from pydantic import BaseModel
-from tasks import process_video_task, render_only_task, cleanup_old_jobs
+from tasks import (
+    process_video_task, render_only_task, cleanup_old_jobs,
+    celery_app, set_cancel_flag,
+)
 from observability import init_sentry
 
 init_sentry("backend")   # เปิดเฉพาะเมื่อมี SENTRY_DSN
@@ -355,6 +358,25 @@ async def get_preview(job_id: str):
 
     with open(preview_file, "r", encoding="utf-8") as f:
         return json.load(f)
+
+
+@app.post("/cancel/{task_id}")
+async def cancel_job(task_id: str):
+    """
+    ยกเลิกงานจริง — กัน task ที่ยังไม่เริ่ม (revoke) + ตั้ง flag ให้ task ที่รันอยู่
+    abort ที่ checkpoint ถัดไป (ไม่ปล่อยให้กิน GPU ต่อ)
+    """
+    if not UUID_OR_TASK_PATTERN.match(task_id):
+        raise HTTPException(status_code=400, detail="task_id ผิดรูปแบบ")
+    # task_id ของ render = "{job_id}-render" แต่ flag/dir key ด้วย job_id
+    job_id = task_id[:-7] if task_id.endswith("-render") else task_id
+    try:
+        celery_app.control.revoke(task_id, terminate=True, signal="SIGTERM")
+    except Exception as e:
+        print(f"⚠️ revoke failed: {e}")
+    set_cancel_flag(job_id)
+    print(f"🛑 Cancel requested: {task_id}")
+    return {"cancelled": True, "task_id": task_id}
 
 
 @app.get("/health")
