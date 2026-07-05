@@ -1,6 +1,5 @@
 import os
 import re
-import time
 import json
 import uuid
 import shutil
@@ -12,7 +11,7 @@ from fastapi.responses import FileResponse
 from celery.result import AsyncResult
 
 from pydantic import BaseModel
-from tasks import process_video_task, render_only_task
+from tasks import process_video_task, render_only_task, cleanup_old_jobs
 
 # ── Constants / Limits ───────────────────────────────────────────────────────
 MAX_FILE_SIZE_MB = 2048               # 2GB upload limit
@@ -21,11 +20,8 @@ ALLOWED_VIDEO_EXTS = {".mp4", ".mov", ".mkv", ".avi", ".webm", ".m4v"}
 ALLOWED_OUTPUT_MODES = {"standard", "tiktok"}
 MIN_TARGET_LENGTH = 10
 MAX_TARGET_LENGTH = 600
-JOB_RETENTION_DAYS = 7                 # ลบ job เก่ากว่า 7 วัน
-# marker ที่ worker เขียนทิ้งไว้ระหว่างประมวลผล job (กัน cleanup ลบ dir ที่กำลังทำงานอยู่)
-PROCESSING_MARKER = ".processing"
-# marker เก่ากว่านี้ = worker น่าจะ crash ไปแล้ว → ถือว่าไม่ active (ลบ dir ได้)
-STALE_MARKER_SECONDS = 6 * 3600        # 6 ชม. (นานกว่างานที่ยาวที่สุดมาก)
+# NOTE: cleanup logic (JOB_RETENTION_DAYS, marker guard) ย้ายไป tasks.py แล้ว
+#       เพื่อให้ทั้ง API startup และ celery beat ใช้ตัวเดียวกัน (DRY)
 UUID_PATTERN = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", re.I)
 # Render task_id format = "{uuid}-render" — รับด้วยใน /status (ของ /preview /render /download ใช้ UUID_PATTERN)
 UUID_OR_TASK_PATTERN = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}(-render)?$", re.I)
@@ -41,49 +37,6 @@ def safe_filename(filename: str) -> str:
     name = SAFE_FILENAME_RE.sub("_", name)
     name = name[:200]                           # limit length
     return name or "upload.mp4"
-
-
-def _is_job_active(job_path: str) -> bool:
-    """
-    True ถ้า job dir มี marker .processing ที่ยัง "สด" — แปลว่า worker กำลังทำงานอยู่
-    กัน cleanup ลบ dir กลางคันขณะ worker กำลังประมวลผล (race ที่เคยเจอใน log จริง)
-    ถ้า marker เก่าเกิน STALE_MARKER_SECONDS ถือว่า worker crash → ลบได้
-    """
-    marker = os.path.join(job_path, PROCESSING_MARKER)
-    try:
-        if not os.path.exists(marker):
-            return False
-        return (time.time() - os.path.getmtime(marker)) < STALE_MARKER_SECONDS
-    except OSError:
-        return False
-
-
-def cleanup_old_jobs():
-    """ลบ folder ใน storage/ ที่เก่ากว่า JOB_RETENTION_DAYS (ข้าม job ที่กำลังประมวลผล)"""
-    if not os.path.exists(STORAGE_DIR):
-        return
-    cutoff = time.time() - JOB_RETENTION_DAYS * 86400
-    removed = 0
-    skipped = 0
-    for entry in os.listdir(STORAGE_DIR):
-        path = os.path.join(STORAGE_DIR, entry)
-        if not os.path.isdir(path):
-            continue
-        try:
-            if os.path.getmtime(path) >= cutoff:
-                continue
-            # ข้าม dir ที่ worker กำลังทำงานอยู่ — อย่าลบกลางคัน
-            if _is_job_active(path):
-                skipped += 1
-                print(f"⏭️ cleanup skipped active job: {path}")
-                continue
-            shutil.rmtree(path, ignore_errors=True)
-            removed += 1
-        except Exception as e:
-            print(f"⚠️ cleanup failed for {path}: {e}")
-    if removed or skipped:
-        print(f"🧹 Cleaned up {removed} old job dir(s) (>{JOB_RETENTION_DAYS} days), "
-              f"skipped {skipped} active")
 
 
 @asynccontextmanager

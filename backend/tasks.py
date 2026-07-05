@@ -1,7 +1,9 @@
 import os
 import json
 import time
+import shutil
 from celery import Celery
+from celery.schedules import crontab
 from celery.exceptions import Ignore
 from core.ffmpeg_utils import extract_clean_audio, edit_and_merge_video, render_tiktok_video
 from core.ai_logic import analyze_video_content
@@ -18,15 +20,27 @@ celery_app.conf.update(
     task_serializer='json',
     result_serializer='json',
     accept_content=['json'],
+    # ── Periodic cleanup (รันด้วย celery beat ที่ฝังใน worker ด้วย --beat) ──
+    # ลบ job เก่าทุกวันตี 3 — ไม่ให้ดิสก์เต็ม (เดิม cleanup รันแค่ตอน API startup)
+    beat_schedule={
+        "cleanup-old-jobs-daily": {
+            "task": "tasks.cleanup_task",
+            "schedule": crontab(hour=3, minute=0),
+        },
+    },
 )
 
 
 STORAGE_DIR = "storage"
 PREVIEW_FILENAME = "preview.json"
 FINAL_VIDEO_NAME = "final_summary.mp4"
-# marker บอกว่า job dir นี้กำลังถูกประมวลผล — main.py cleanup จะข้าม dir ที่มี marker สด
+# marker บอกว่า job dir นี้กำลังถูกประมวลผล — cleanup จะข้าม dir ที่มี marker สด
 # (กัน race ที่ cleanup ลบ dir กลางคันขณะ worker ทำงาน)
 PROCESSING_MARKER = ".processing"
+# ลบ job เก่ากว่ากี่วัน
+JOB_RETENTION_DAYS = int(os.getenv("JOB_RETENTION_DAYS", "7"))
+# marker เก่ากว่านี้ = worker น่าจะ crash ไปแล้ว → ถือว่าไม่ active (ลบ dir ได้)
+STALE_MARKER_SECONDS = 6 * 3600        # 6 ชม. (นานกว่างานที่ยาวที่สุดมาก)
 
 
 def _mark_processing(job_dir: str) -> None:
@@ -47,6 +61,60 @@ def _clear_processing(job_dir: str) -> None:
         pass
     except Exception as e:
         print(f"⚠️ clear_processing failed for {job_dir}: {e}")
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Cleanup — ลบ job dir เก่า (เรียกทั้งตอน API startup [main.py] และ periodic [beat])
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _is_job_active(job_path: str) -> bool:
+    """
+    True ถ้า job dir มี marker .processing ที่ยัง "สด" — แปลว่า worker กำลังทำงานอยู่
+    กัน cleanup ลบ dir กลางคันขณะ worker กำลังประมวลผล (race ที่เคยเจอใน log จริง)
+    ถ้า marker เก่าเกิน STALE_MARKER_SECONDS ถือว่า worker crash → ลบได้
+    """
+    marker = os.path.join(job_path, PROCESSING_MARKER)
+    try:
+        if not os.path.exists(marker):
+            return False
+        return (time.time() - os.path.getmtime(marker)) < STALE_MARKER_SECONDS
+    except OSError:
+        return False
+
+
+def cleanup_old_jobs() -> None:
+    """ลบ folder ใน storage/ ที่เก่ากว่า JOB_RETENTION_DAYS (ข้าม job ที่กำลังประมวลผล)"""
+    if not os.path.exists(STORAGE_DIR):
+        return
+    cutoff = time.time() - JOB_RETENTION_DAYS * 86400
+    removed = 0
+    skipped = 0
+    for entry in os.listdir(STORAGE_DIR):
+        path = os.path.join(STORAGE_DIR, entry)
+        if not os.path.isdir(path):
+            continue
+        try:
+            if os.path.getmtime(path) >= cutoff:
+                continue
+            # ข้าม dir ที่ worker กำลังทำงานอยู่ — อย่าลบกลางคัน
+            if _is_job_active(path):
+                skipped += 1
+                print(f"⏭️ cleanup skipped active job: {path}")
+                continue
+            shutil.rmtree(path, ignore_errors=True)
+            removed += 1
+        except Exception as e:
+            print(f"⚠️ cleanup failed for {path}: {e}")
+    if removed or skipped:
+        print(f"🧹 Cleaned up {removed} old job dir(s) (>{JOB_RETENTION_DAYS} days), "
+              f"skipped {skipped} active")
+
+
+@celery_app.task
+def cleanup_task():
+    """Periodic task (beat) — เรียก cleanup_old_jobs ทุกวัน กันดิสก์เต็ม"""
+    print("🧹 [beat] Running scheduled cleanup_old_jobs...")
+    cleanup_old_jobs()
 
 
 def _preview_path(job_dir: str) -> str:

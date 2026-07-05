@@ -2,6 +2,12 @@ services:
   redis:
     image: redis:7-alpine
     restart: unless-stopped
+    mem_limit: 256m
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
     networks:
       - app-network
 
@@ -10,6 +16,7 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     restart: unless-stopped
+    mem_limit: 1g
     ports:
       - "8000:8000"
     volumes:
@@ -19,7 +26,14 @@ services:
     env_file:
       - ./backend/.env
     depends_on:
-      - redis
+      redis:
+        condition: service_healthy      # รอ Redis พร้อมจริงก่อน start (ไม่ใช่แค่ลำดับ)
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
     networks:
       - app-network
 
@@ -27,8 +41,14 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    command: celery -A tasks worker --loglevel=info --pool=solo --concurrency=1
+    # --beat: ฝัง scheduler ไว้ใน worker เลย (มี worker ตัวเดียว ปลอดภัย)
+    #         → รัน cleanup_task ตามเวลาใน beat_schedule (tasks.py) โดยไม่ต้องเปิด container เพิ่ม
+    command: celery -A tasks worker --beat --loglevel=info --pool=solo --concurrency=1
     restart: unless-stopped
+    # ⚠️ กัน OOM ล้มทั้ง host: worker โหลด Whisper + ffmpeg กิน RAM ได้เยอะ
+    #    จำกัดไว้ → Docker kill แค่ container นี้ ไม่ใช่ทั้งเครื่อง
+    #    ตั้งต่ำไปงานวิดีโอยาวจะโดน kill — ปรับตาม RAM เครื่อง (host นี้ ~8GB)
+    mem_limit: 5g
     volumes:
       - ./backend/storage:/app/storage
       - whisper-cache:/root/.cache/huggingface
@@ -38,7 +58,8 @@ services:
     environment:
       - WHISPER_BATCH_SIZE=4
     depends_on:
-      - redis
+      redis:
+        condition: service_healthy
     networks:
       - app-network
     # ── GPU passthrough (NVIDIA) ────────────────────────────
@@ -55,10 +76,12 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
     restart: unless-stopped
+    mem_limit: 128m
     ports:
       - "80:80"
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy      # รอ backend health ก่อน serve (กัน 502 ตอน boot)
     networks:
       - app-network
 
