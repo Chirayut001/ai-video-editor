@@ -47,8 +47,9 @@ WHISPER_BATCH_SIZE = int(os.getenv("WHISPER_BATCH_SIZE", "4"))
 # ── Prompt / logging config ──────────────────────────────────────────────────
 # DEBUG=1 → พิมพ์เนื้อหา transcript ลง log (dev เท่านั้น) — production ปล่อยว่าง = ไม่พิมพ์
 DEBUG = os.getenv("DEBUG", "").lower() in ("1", "true", "yes")
-# จำกัดขนาด transcript ที่ส่งเข้า Gemini (กัน token แพง / เกิน context สำหรับวิดีโอยาว)
-MAX_TRANSCRIPT_CHARS = int(os.getenv("MAX_TRANSCRIPT_CHARS", "120000"))
+# จำกัดขนาด transcript ที่ส่งเข้า Gemini — 0 = ไม่จำกัด (default, เหมือนเดิม)
+# ตั้ง > 0 ถ้าอยากกัน token แพง/เกิน context สำหรับวิดีโอยาวมาก
+MAX_TRANSCRIPT_CHARS = int(os.getenv("MAX_TRANSCRIPT_CHARS", "0"))
 # นับอักษรไทย → ใช้ตัดสินภาษาหลักของเนื้อหา (ไม่บังคับแปลเป็นไทยถ้าต้นฉบับไม่ใช่ไทย)
 _THAI_CHAR_RE = re.compile(r"[฀-๿]")
 
@@ -783,8 +784,8 @@ def analyze_video_content(
     # ── Step 3: Gemini วิเคราะห์ transcript ──────────────────────────────────
     ai_json_data = json.dumps(filtered_transcript, ensure_ascii=False)
 
-    # Size guard — กัน token แพง / เกิน context สำหรับวิดีโอยาว
-    if len(ai_json_data) > MAX_TRANSCRIPT_CHARS:
+    # Size guard — ปิดโดย default (MAX_TRANSCRIPT_CHARS=0). เปิดได้ผ่าน env ถ้าต้องการ
+    if MAX_TRANSCRIPT_CHARS and len(ai_json_data) > MAX_TRANSCRIPT_CHARS:
         raise Exception(
             f"Transcript ยาวเกินไป ({len(ai_json_data):,} ตัวอักษร > {MAX_TRANSCRIPT_CHARS:,}) — "
             f"วิดีโอยาวเกินขีดจำกัด กรุณาแบ่งเป็นส่วนสั้นลงแล้วลองใหม่"
