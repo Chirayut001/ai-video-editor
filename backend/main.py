@@ -16,6 +16,9 @@ from slowapi.errors import RateLimitExceeded
 
 from pydantic import BaseModel
 from tasks import process_video_task, render_only_task, cleanup_old_jobs
+from observability import init_sentry
+
+init_sentry("backend")   # เปิดเฉพาะเมื่อมี SENTRY_DSN
 
 # ── Constants / Limits ───────────────────────────────────────────────────────
 MAX_FILE_SIZE_MB = 2048               # 2GB upload limit
@@ -97,7 +100,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
-    allow_methods=["GET", "POST"],
+    allow_methods=["GET", "POST", "DELETE"],
     allow_headers=["*"],
 )
 
@@ -352,6 +355,22 @@ async def get_preview(job_id: str):
 
     with open(preview_file, "r", encoding="utf-8") as f:
         return json.load(f)
+
+
+@app.delete("/job/{job_id}")
+async def delete_job(job_id: str):
+    """
+    PDPA — สิทธิ์ในการลบข้อมูล: ให้ user ลบไฟล์ทั้งหมดของ job ตัวเองได้ทันที
+    (วิดีโอต้นฉบับ + audio + transcript + preview + ผลลัพธ์) โดยไม่ต้องรอ retention
+    """
+    if not UUID_PATTERN.match(job_id):
+        raise HTTPException(status_code=400, detail="job_id ผิดรูปแบบ")
+    job_dir = os.path.join(STORAGE_DIR, job_id)
+    if not os.path.isdir(job_dir):
+        raise HTTPException(status_code=404, detail="ไม่พบข้อมูล (อาจถูกลบไปแล้ว)")
+    shutil.rmtree(job_dir, ignore_errors=True)
+    print(f"🗑️ [PDPA] User deleted job data: {job_id}")
+    return {"deleted": True, "job_id": job_id}
 
 
 @app.get("/health")

@@ -9,9 +9,17 @@ from core.ffmpeg_utils import extract_clean_audio, edit_and_merge_video, render_
 from core.ai_logic import analyze_video_content
 from core.vad_logic import get_voice_activity
 from core.srt_utils import generate_phrases_from_transcript
+from observability import init_sentry
+from celery.signals import worker_init
 from dotenv import load_dotenv
 
 load_dotenv()
+
+
+@worker_init.connect
+def _sentry_worker_init(**_):
+    """init Sentry เฉพาะตอน worker บูตจริง — ไม่ใช่ตอน backend import tasks (กัน double-init)"""
+    init_sentry("worker")
 
 celery_app = Celery('video_tasks', broker=os.getenv('REDIS_URL', 'redis://localhost:6379/0'))
 celery_app.conf.update(
