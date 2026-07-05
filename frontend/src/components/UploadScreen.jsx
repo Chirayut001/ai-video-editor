@@ -27,6 +27,9 @@ const PROMPT_PRESETS = [
     text: '' },
 ];
 
+// จำกัดขนาดไฟล์ฝั่ง client — ตรงกับ MAX_FILE_SIZE_MB ของ backend (กันเริ่มอัปโหลดแล้วโดน 413)
+const MAX_FILE_MB = 2048;
+
 const UploadScreen = ({ onUploadSuccess }) => {
   const [file, setFile] = useState(null);
   const [previewUrl, setPreviewUrl] = useState(null);
@@ -62,6 +65,11 @@ const UploadScreen = ({ onUploadSuccess }) => {
     if (!selectedFile) return;
     if (!selectedFile.type.startsWith('video/')) {
       alert('กรุณาเลือกไฟล์วิดีโอเท่านั้น');
+      return;
+    }
+    if (selectedFile.size > MAX_FILE_MB * 1024 * 1024) {
+      const sizeMB = (selectedFile.size / 1024 / 1024).toFixed(0);
+      alert(`ไฟล์ใหญ่เกิน ${MAX_FILE_MB} MB (ไฟล์นี้ ${sizeMB} MB) — กรุณาเลือกไฟล์เล็กลง`);
       return;
     }
     setFile(selectedFile);

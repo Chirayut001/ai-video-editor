@@ -21,6 +21,7 @@ celery_app.conf.update(
 )
 
 
+STORAGE_DIR = "storage"
 PREVIEW_FILENAME = "preview.json"
 FINAL_VIDEO_NAME = "final_summary.mp4"
 # marker บอกว่า job dir นี้กำลังถูกประมวลผล — main.py cleanup จะข้าม dir ที่มี marker สด
@@ -199,7 +200,7 @@ def render_only_task(self, job_id, selected_segments, edited_phrases=None):
     selected_segments: [{"start": .., "end": ..}, ...] ที่ user approve
     edited_phrases:    [{"start": .., "end": .., "text": ...}, ...] ถ้า user แก้ subtitle (optional)
     """
-    job_dir = f"storage/{job_id}"
+    job_dir = os.path.join(STORAGE_DIR, job_id)
     _mark_processing(job_dir)   # กัน cleanup ลบ dir กลางคัน
     try:
         preview = _load_preview(job_dir)

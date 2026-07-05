@@ -18,6 +18,11 @@ const STEPS = [
   { id: 4, label: 'ตัด & รวม',     icon: Film,       progressMin: 80, progressMax: 100 },
 ];
 
+// เพดานเวลา polling — งานที่ค้างนานเกินนี้ (เช่น worker ตาย) จะเลิก poll แล้วโชว์ error
+const MAX_POLL_MS = 60 * 60 * 1000;   // 60 นาที
+// ยอมแพ้ถ้าเชื่อมต่อ backend ไม่ได้ติดต่อกันเกินจำนวนนี้ (≈ 20 × 3s = 60s)
+const MAX_CONSECUTIVE_ERRORS = 20;
+
 const Processing = ({ jobId, onComplete, onCancel }) => {
   const [status, setStatus] = useState('PENDING');
   const [message, setMessage] = useState('🕐 รอคิวประมวลผล');
@@ -44,11 +49,22 @@ const Processing = ({ jobId, onComplete, onCancel }) => {
 
   useEffect(() => {
     let cancelled = false;
+    let errorCount = 0;
     const checkStatus = async () => {
       if (cancelled) return;
+
+      // เพดานเวลา — งานค้างนานผิดปกติ (worker ตาย/task ค้าง PENDING) → เลิก poll
+      if (Date.now() - startTimeRef.current > MAX_POLL_MS) {
+        stopPolling();
+        setStatus('FAILURE');
+        setMessage('ใช้เวลานานผิดปกติ — งานอาจค้าง กรุณาลองใหม่');
+        return;
+      }
+
       try {
         const { data } = await axios.get(`${API_URL}/status/${jobId}`);
         if (cancelled) return;
+        errorCount = 0;   // ติดต่อสำเร็จ → reset ตัวนับ error
 
         if (data.status === 'SUCCESS') {
           stopPolling();
@@ -78,7 +94,15 @@ const Processing = ({ jobId, onComplete, onCancel }) => {
           setProgress(data.progress || 0);
         }
       } catch (err) {
+        if (cancelled) return;
         console.error('Polling error', err);
+        errorCount += 1;
+        // เชื่อมต่อ backend ไม่ได้ติดต่อกันหลายครั้ง → เลิก poll แล้วแจ้ง error
+        if (errorCount >= MAX_CONSECUTIVE_ERRORS) {
+          stopPolling();
+          setStatus('FAILURE');
+          setMessage('เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ — กรุณาตรวจสอบการเชื่อมต่อแล้วลองใหม่');
+        }
       }
     };
     checkStatus();

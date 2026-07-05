@@ -1,6 +1,7 @@
 import os
 import re
 import time
+import json
 import uuid
 import shutil
 from contextlib import asynccontextmanager
@@ -301,11 +302,14 @@ async def render_preview(job_id: str, body: RenderRequest):
     if not body.segments:
         raise HTTPException(status_code=400, detail="ต้องเลือก segments อย่างน้อย 1 ช่วง")
 
-    # Validate segments
+    # Validate segments — ครอบ float() กัน 500 ถ้า start/end ไม่ใช่ตัวเลข (คืน 400 แทน)
     cleaned = []
     for s in body.segments:
-        start = float(s.get("start", 0))
-        end = float(s.get("end", 0))
+        try:
+            start = float(s.get("start", 0))
+            end = float(s.get("end", 0))
+        except (TypeError, ValueError):
+            continue
         if end <= start:
             continue
         cleaned.append({"start": round(start, 2), "end": round(end, 2)})
@@ -327,42 +331,21 @@ async def render_preview(job_id: str, body: RenderRequest):
     return {"task_id": new_task_id, "job_id": job_id}
 
 
-class SubtitleUpdateRequest(BaseModel):
-    phrases: list[dict]   # [{"start": float, "end": float, "text": str}]
-
-
 @app.get("/subtitle/{job_id}")
 async def get_subtitle(job_id: str):
-    """ดึง subtitle phrases ปัจจุบันที่ user เห็น (auto-generated หรือที่ user แก้แล้ว)"""
+    """ดึง subtitle phrases ที่ pre-generate ไว้ (frontend โหลดไปให้ user แก้ก่อน render)"""
     if not UUID_PATTERN.match(job_id):
         raise HTTPException(status_code=400, detail="job_id ผิดรูปแบบ")
     preview_file = os.path.join(STORAGE_DIR, job_id, "preview.json")
     if not os.path.exists(preview_file):
         raise HTTPException(status_code=404, detail="ไม่พบ preview")
-    import json as _json
     with open(preview_file, "r", encoding="utf-8") as f:
-        data = _json.load(f)
+        data = json.load(f)
     return {"phrases": data.get("subtitle_phrases", [])}
 
 
-@app.post("/subtitle/{job_id}")
-async def save_subtitle(job_id: str, body: SubtitleUpdateRequest):
-    """บันทึก subtitle phrases ที่ user แก้แล้ว ลง preview.json"""
-    if not UUID_PATTERN.match(job_id):
-        raise HTTPException(status_code=400, detail="job_id ผิดรูปแบบ")
-    preview_file = os.path.join(STORAGE_DIR, job_id, "preview.json")
-    if not os.path.exists(preview_file):
-        raise HTTPException(status_code=404, detail="ไม่พบ preview")
-
-    cleaned = _validate_phrases(body.phrases or [])
-
-    import json as _json
-    with open(preview_file, "r", encoding="utf-8") as f:
-        data = _json.load(f)
-    data["subtitle_phrases"] = cleaned
-    with open(preview_file, "w", encoding="utf-8") as f:
-        _json.dump(data, f, ensure_ascii=False, indent=2)
-    return {"saved": len(cleaned)}
+# NOTE: subtitle ที่ user แก้ถูกส่งตรงเข้า POST /render (edited_phrases) ไม่ต้อง persist
+# ก่อน render — จึงไม่มี POST /subtitle (เคยเป็น dead code ที่ frontend ไม่เรียก)
 
 
 @app.get("/preview/{job_id}")
@@ -375,9 +358,8 @@ async def get_preview(job_id: str):
     if not os.path.exists(preview_file):
         raise HTTPException(status_code=404, detail="ไม่พบ preview")
 
-    import json as _json
     with open(preview_file, "r", encoding="utf-8") as f:
-        return _json.load(f)
+        return json.load(f)
 
 
 @app.get("/health")

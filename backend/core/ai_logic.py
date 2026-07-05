@@ -576,7 +576,8 @@ def merge_close_segments(segments: list[dict], gap_threshold: float = 2.0) -> li
     if not segments:
         return []
 
-    segments.sort(key=lambda x: x['start'])
+    # sorted() แทน .sort() เพื่อไม่ mutate list ของ caller
+    segments = sorted(segments, key=lambda x: x['start'])
     merged = [segments[0].copy()]
     for current in segments[1:]:
         last = merged[-1]

@@ -78,10 +78,13 @@ def edit_and_merge_video(video_path, highlights_json, output_path, job_dir,
 
         print(f"✂️ Cutting Part {i}: {start}s -> {end}s ({duration:.2f}s)")
 
-        # ใช้การ Re-encode ด้วย libx264 เพื่อความแม่นยำของรอยต่อ (Frame-accurate)
+        # Re-encode ด้วย libx264 เพื่อให้ทุก part มี codec/params เหมือนกัน → concat copy ได้
+        # NOTE: '-ss' วางก่อน '-i' = input seeking (เร็ว แต่ snap ไป keyframe ใกล้เคียง
+        #       ไม่ frame-accurate) เป็น tradeoff ที่ยอมรับได้สำหรับงานตัด segment ยาว ๆ
+        #       ถ้าต้องการ frame-accurate จริงต้องย้าย '-ss' ไปหลัง '-i' (ช้ากว่ามาก)
         cmd = [
             'ffmpeg', '-y',
-            '-ss', str(start),         # ใส่ -ss ก่อน -i เพื่อความเร็ว (Fast Seeking)
+            '-ss', str(start),         # input seeking (fast, keyframe-snapped)
             '-t', str(duration),
             '-i', video_path,
             '-c:v', 'libx264',
@@ -242,10 +245,12 @@ def render_tiktok_video(video_path, keep_segments, transcript, output_path, job_
         part_path = os.path.abspath(os.path.join(temp_dir, part_name))
 
         print(f"✂️ [TIKTOK] Cutting Part {i}: {start}s → {end}s ({duration:.2f}s)")
+        # NOTE: '-ss' ก่อน '-i' = input seeking (เร็ว แต่ snap ไป keyframe ไม่ frame-accurate)
+        #       ยอมรับได้สำหรับตัด segment; ต้องการ frame-accurate ให้ย้าย '-ss' ไปหลัง '-i'
         cmd = [
             "ffmpeg", "-y",
             "-noautorotate",                 # ignore source rotation metadata
-            "-ss", str(start),
+            "-ss", str(start),               # input seeking (fast, keyframe-snapped)
             "-t", str(duration),
             "-i", video_path,
             "-vf", _TIKTOK_SCALE_PAD,
