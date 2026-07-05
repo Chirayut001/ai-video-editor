@@ -9,3 +9,4 @@ google-genai
 faster-whisper>=1.0.0
 python-multipart
 pythainlp>=5.0.0
+slowapi>=0.1.9

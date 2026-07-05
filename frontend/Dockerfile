@@ -5,6 +5,13 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm ci
 COPY . .
+# build-time config (vite อ่าน VITE_* ตอน build)
+#   VITE_API_URL=/api  → same-origin หลัง reverse proxy (Caddy)
+#   VITE_API_KEY=...   → แนบ X-API-Key อัตโนมัติ (ต้องตรงกับ API_KEYS ฝั่ง backend)
+ARG VITE_API_URL
+ARG VITE_API_KEY
+ENV VITE_API_URL=$VITE_API_URL
+ENV VITE_API_KEY=$VITE_API_KEY
 RUN npm run build
 
 # Stage 2: Serve ด้วย Nginx

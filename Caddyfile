@@ -1,0 +1,20 @@
+# ── Caddy reverse proxy (auto-HTTPS) ─────────────────────────────────────────
+# DOMAIN=localhost   → Caddy ออก cert ภายในเอง (self-signed) สำหรับทดสอบ local
+# DOMAIN=example.com → Caddy ขอ cert จริงจาก Let's Encrypt อัตโนมัติ (ต้องชี้ DNS มาที่เครื่องนี้ + เปิด 80/443)
+{$DOMAIN:localhost} {
+	# จำกัด body ให้ตรงกับ MAX_FILE_SIZE_MB ฝั่ง backend (กันอัปโหลดใหญ่เกิน)
+	request_body {
+		max_size 2GB
+	}
+
+	# /api/* → backend (ตัด prefix /api ออกก่อนส่งต่อ)
+	#   frontend build ด้วย VITE_API_URL=/api → เรียก same-origin ไม่ต้องพึ่ง CORS
+	handle_path /api/* {
+		reverse_proxy backend:8000
+	}
+
+	# ที่เหลือ → frontend (React static ที่ nginx serve)
+	handle {
+		reverse_proxy frontend:80
+	}
+}

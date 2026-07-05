@@ -1,0 +1,43 @@
+# ── Production HTTPS overlay (Caddy reverse proxy) ───────────────────────────
+# ใช้คู่กับ docker-compose.yml:
+#
+#   ทดสอบ local (พอร์ตสำรอง กันชนกับ dev stack ที่ใช้ 80):
+#     CADDY_HTTP_PORT=8080 CADDY_HTTPS_PORT=8443 \
+#       docker compose -f docker-compose.yml -f docker-compose.caddy.yml up -d caddy
+#     → https://localhost:8443  (curl -k)
+#
+#   Production (โดเมนจริง):
+#     DOMAIN=yourdomain.com VITE_API_URL=/api \
+#       docker compose -f docker-compose.yml -f docker-compose.caddy.yml up -d --build
+#     แล้ว "ลบ ports: ของ backend + frontend" ใน docker-compose.yml
+#     เพื่อไม่ให้เปิด 8000/80 ตรง ๆ (ให้ผ่าน Caddy เท่านั้น)
+services:
+  # frontend build แบบ same-origin (/api) เมื่อรันผ่าน overlay นี้
+  frontend:
+    build:
+      args:
+        VITE_API_URL: ${VITE_API_URL:-/api}
+        VITE_API_KEY: ${VITE_API_KEY:-}
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    mem_limit: 128m
+    environment:
+      - DOMAIN=${DOMAIN:-localhost}
+    ports:
+      - "${CADDY_HTTP_PORT:-80}:80"
+      - "${CADDY_HTTPS_PORT:-443}:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - app-network
+
+volumes:
+  caddy_data:
+  caddy_config:

@@ -4,11 +4,15 @@ import json
 import uuid
 import shutil
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, UploadFile, File, Form, HTTPException
+from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Request, Header, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from celery.result import AsyncResult
+
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
 
 from pydantic import BaseModel
 from tasks import process_video_task, render_only_task, cleanup_old_jobs
@@ -39,6 +43,40 @@ def safe_filename(filename: str) -> str:
     return name or "upload.mp4"
 
 
+# ── Security config (auth / rate limit / CORS) — เปิด/ปิดผ่าน env ─────────────
+# API key: API_KEYS ว่าง = ปิด auth (dev). ตั้งค่า = /upload,/render ต้องมี X-API-Key ที่ถูกต้อง
+API_KEYS = {k.strip() for k in os.getenv("API_KEYS", "").split(",") if k.strip()}
+# CORS: ตั้ง ALLOWED_ORIGINS (คั่นด้วย ,) สำหรับ deploy โดเมนจริง — ไม่ตั้ง = localhost
+_DEFAULT_ORIGINS = ("http://localhost,http://127.0.0.1,http://localhost:80,"
+                    "http://127.0.0.1:80,http://localhost:5173")
+ALLOWED_ORIGINS = [o.strip() for o in os.getenv("ALLOWED_ORIGINS", _DEFAULT_ORIGINS).split(",") if o.strip()]
+# Rate limit ต่อ IP (ปรับผ่าน env) — กันยิงถล่ม /upload,/render (ที่กิน GPU+โควต้า AI)
+UPLOAD_RATE_LIMIT = os.getenv("UPLOAD_RATE_LIMIT", "20/hour")
+RENDER_RATE_LIMIT = os.getenv("RENDER_RATE_LIMIT", "60/hour")
+
+
+def _client_ip(request: Request) -> str:
+    """ดึง IP จริง — รองรับหลัง reverse proxy (Caddy ใส่ X-Forwarded-For)"""
+    xff = request.headers.get("x-forwarded-for")
+    if xff:
+        return xff.split(",")[0].strip()
+    return get_remote_address(request)
+
+
+limiter = Limiter(
+    key_func=_client_ip,
+    storage_uri=os.getenv("REDIS_URL", "redis://localhost:6379/0"),
+)
+
+
+async def require_api_key(x_api_key: str = Header(None, alias="X-API-Key")):
+    """บังคับ API key เฉพาะเมื่อ API_KEYS ถูกตั้งค่า (ไม่งั้น no-op สำหรับ dev)"""
+    if not API_KEYS:
+        return
+    if not x_api_key or x_api_key not in API_KEYS:
+        raise HTTPException(status_code=401, detail="ต้องมี X-API-Key ที่ถูกต้อง")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # startup
@@ -50,16 +88,14 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 
-# ── CORS: lock ลงเฉพาะ localhost (กัน CSRF) ──────────────────────────────────
+# ── Rate limiter (slowapi + Redis) ───────────────────────────────────────────
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+# ── CORS: ตั้งจาก env (ALLOWED_ORIGINS) — deploy โดเมนจริงได้ ไม่ hardcode ──────
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost",
-        "http://127.0.0.1",
-        "http://localhost:80",
-        "http://127.0.0.1:80",
-        "http://localhost:5173",   # vite dev
-    ],
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["GET", "POST"],
     allow_headers=["*"],
@@ -68,8 +104,10 @@ app.add_middleware(
 app.mount("/storage", StaticFiles(directory=STORAGE_DIR), name="storage")
 
 
-@app.post("/upload")
+@app.post("/upload", dependencies=[Depends(require_api_key)])
+@limiter.limit(UPLOAD_RATE_LIMIT)
 async def upload_video(
+    request: Request,
     video: UploadFile = File(...),
     prompt: str = Form(...),
     output_mode: str = Form("standard"),
@@ -242,8 +280,9 @@ def _validate_phrases(phrases: list[dict]) -> list[dict]:
     return out
 
 
-@app.post("/render/{job_id}")
-async def render_preview(job_id: str, body: RenderRequest):
+@app.post("/render/{job_id}", dependencies=[Depends(require_api_key)])
+@limiter.limit(RENDER_RATE_LIMIT)
+async def render_preview(request: Request, job_id: str, body: RenderRequest):
     """Render วิดีโอจาก preview ที่ user เลือก segments แล้ว"""
     if not UUID_PATTERN.match(job_id):
         raise HTTPException(status_code=400, detail="job_id ผิดรูปแบบ")

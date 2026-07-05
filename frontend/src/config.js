@@ -1,6 +1,8 @@
+import axios from "axios";
+
 // API URL configuration
 // Priority:
-//   1. VITE_API_URL build-time env (สำหรับ deploy production)
+//   1. VITE_API_URL build-time env (สำหรับ deploy production; ใส่ /api ได้ถ้าอยู่หลัง reverse proxy)
 //   2. window.location.origin + :8000 (ทำงานทั้ง localhost และ remote)
 //   3. fallback localhost
 const ENV_URL = import.meta.env?.VITE_API_URL;
@@ -20,3 +22,11 @@ if (ENV_URL) {
 }
 
 export const API_URL = inferredBackend;
+
+// ── API key (optional) ───────────────────────────────────────────────────────
+// ถ้า build ด้วย VITE_API_KEY → แนบ header X-API-Key ให้ทุก request อัตโนมัติ
+// (ต้องตรงกับค่าใน API_KEYS ฝั่ง backend) ปล่อยว่าง = ไม่แนบ (dev)
+const API_KEY = import.meta.env?.VITE_API_KEY;
+if (API_KEY) {
+  axios.defaults.headers.common["X-API-Key"] = API_KEY;
+}
