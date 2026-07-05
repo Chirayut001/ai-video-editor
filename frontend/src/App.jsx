@@ -103,23 +103,23 @@ function App() {
   const jobIdShort = videoUrl ? videoUrl.split('/')[0] : '';
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-violet-50/30 flex flex-col">
+    <div className="min-h-screen bg-slate-50 flex flex-col">
       {/* ── Header ─────────────────────────────────────── */}
-      <header className="sticky top-0 z-10 bg-white/70 backdrop-blur-md border-b border-slate-200/60">
+      <header className="sticky top-0 z-10 bg-white/80 backdrop-blur-md border-b border-slate-200/70">
         <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-blue-500 to-violet-500 flex items-center justify-center shadow-md shadow-blue-500/30">
+            <div className="h-9 w-9 rounded-xl bg-indigo-600 flex items-center justify-center">
               <Sparkles className="h-5 w-5 text-white" />
             </div>
             <div>
-              <h1 className="text-base font-bold text-slate-800 leading-tight">AI Video Smart Editor</h1>
-              <p className="text-[10px] text-slate-500 leading-tight">Powered by Whisper</p>
+              <h1 className="text-base font-semibold text-slate-900 leading-tight">AI Video Smart Editor</h1>
+              <p className="text-[10px] text-slate-400 leading-tight">Powered by Whisper</p>
             </div>
           </div>
           {(jobId || videoUrl) && (
             <button
               onClick={handleReset}
-              className="text-xs font-medium text-slate-600 hover:text-blue-600 px-3 py-1.5 rounded-lg hover:bg-blue-50 transition-colors"
+              className="text-xs font-medium text-slate-500 hover:text-indigo-600 px-3 py-1.5 rounded-lg hover:bg-slate-100 transition-colors"
             >
               ← เริ่มใหม่
             </button>
@@ -162,15 +162,15 @@ function App() {
           <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
             {/* Success badge */}
             <div className="text-center">
-              <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-emerald-100 text-emerald-700 rounded-full text-xs font-semibold">
+              <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-emerald-50 text-emerald-600 rounded-full text-xs font-medium">
                 <Sparkles className="h-3.5 w-3.5" />
                 ตัดต่อเสร็จสมบูรณ์
               </div>
-              <h2 className="text-2xl sm:text-3xl font-bold text-slate-800 mt-3">วิดีโอของคุณพร้อมแล้ว ✨</h2>
+              <h2 className="text-2xl sm:text-3xl font-semibold text-slate-900 mt-3">วิดีโอของคุณพร้อมแล้ว</h2>
             </div>
 
             {/* Video Player */}
-            <div className="bg-slate-900 rounded-2xl overflow-hidden shadow-2xl shadow-slate-200 ring-1 ring-slate-200">
+            <div className="bg-slate-900 rounded-2xl overflow-hidden border border-slate-200">
               <div className="flex justify-center max-h-[70vh]">
                 <video
                   src={`${API_URL}/storage/${videoUrl}`}
@@ -186,14 +186,14 @@ function App() {
               <a
                 href={`${API_URL}/download/${jobIdShort}`}
                 download="ai_edited_video.mp4"
-                className="flex-1 flex items-center justify-center gap-2 bg-gradient-to-r from-blue-600 to-violet-600 text-white px-6 py-3.5 rounded-xl font-semibold hover:shadow-lg hover:shadow-blue-500/30 transition-all active:scale-[0.98]"
+                className="flex-1 flex items-center justify-center gap-2 bg-indigo-600 text-white px-6 py-3.5 rounded-xl font-semibold hover:bg-indigo-700 transition-colors active:scale-[0.98]"
               >
                 <Download className="h-5 w-5" />
                 ดาวน์โหลดวิดีโอ
               </a>
               <button
                 onClick={handleReset}
-                className="flex-1 flex items-center justify-center gap-2 bg-white text-slate-700 px-6 py-3.5 rounded-xl font-semibold border border-slate-200 hover:bg-slate-50 hover:border-slate-300 transition-all active:scale-[0.98]"
+                className="flex-1 flex items-center justify-center gap-2 bg-white text-slate-700 px-6 py-3.5 rounded-xl font-semibold border border-slate-200 hover:bg-slate-50 transition-colors active:scale-[0.98]"
               >
                 <RotateCcw className="h-5 w-5" />
                 ตัดต่อใหม่

@@ -90,7 +90,7 @@ const PreviewScreen = ({ jobId, onRendering, onCancel, onEditSubtitle }) => {
   if (loading) {
     return (
       <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-12 text-center">
-        <Loader2 className="h-12 w-12 text-blue-500 animate-spin mx-auto mb-3" />
+        <Loader2 className="h-12 w-12 text-indigo-500 animate-spin mx-auto mb-3" />
         <p className="text-sm text-slate-500">กำลังโหลด preview...</p>
       </div>
     );
@@ -115,12 +115,12 @@ const PreviewScreen = ({ jobId, onRendering, onCancel, onEditSubtitle }) => {
     <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
       {/* Hero */}
       <div className="text-center">
-        <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-violet-100 text-violet-700 rounded-full text-xs font-semibold mb-2">
+        <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-indigo-50 text-indigo-600 rounded-full text-xs font-medium mb-2">
           <Eye className="h-3.5 w-3.5" />
-          Preview Mode
+          Preview
         </div>
-        <h2 className="text-2xl font-bold text-slate-800">
-          ตรวจสอบช่วงที่ AI <span className="bg-gradient-to-r from-violet-600 to-pink-600 bg-clip-text text-transparent">เลือกไว้</span>
+        <h2 className="text-2xl font-semibold text-slate-900">
+          ตรวจสอบช่วงที่ AI <span className="text-indigo-600">เลือกไว้</span>
         </h2>
         <p className="text-sm text-slate-500 mt-1">
           เลือก / ยกเลิก ช่วงที่ต้องการ — แล้วกด "ตัดต่อ" เพื่อ render
@@ -130,8 +130,8 @@ const PreviewScreen = ({ jobId, onRendering, onCancel, onEditSubtitle }) => {
       {/* Stats card */}
       <div className="bg-white rounded-2xl border border-slate-200 p-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
         <div className="flex items-center gap-3">
-          <div className="h-9 w-9 rounded-lg bg-blue-50 flex items-center justify-center">
-            <Sigma className="h-4 w-4 text-blue-600" />
+          <div className="h-9 w-9 rounded-lg bg-indigo-50 flex items-center justify-center">
+            <Sigma className="h-4 w-4 text-indigo-600" />
           </div>
           <div>
             <p className="text-[10px] text-slate-500 uppercase font-medium">ที่เลือก</p>
@@ -139,8 +139,8 @@ const PreviewScreen = ({ jobId, onRendering, onCancel, onEditSubtitle }) => {
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <div className="h-9 w-9 rounded-lg bg-violet-50 flex items-center justify-center">
-            <Clock className="h-4 w-4 text-violet-600" />
+          <div className="h-9 w-9 rounded-lg bg-indigo-50 flex items-center justify-center">
+            <Clock className="h-4 w-4 text-indigo-600" />
           </div>
           <div>
             <p className="text-[10px] text-slate-500 uppercase font-medium">ความยาวรวม</p>
@@ -150,7 +150,7 @@ const PreviewScreen = ({ jobId, onRendering, onCancel, onEditSubtitle }) => {
         <div className="col-span-2 sm:col-span-1 flex items-center gap-2 justify-end">
           <button
             onClick={selectAll}
-            className="text-xs px-3 py-1.5 bg-blue-50 text-blue-700 rounded-md hover:bg-blue-100 font-medium"
+            className="text-xs px-3 py-1.5 bg-indigo-50 text-indigo-700 rounded-md hover:bg-indigo-100 font-medium"
           >
             เลือกทั้งหมด
           </button>
@@ -175,13 +175,13 @@ const PreviewScreen = ({ jobId, onRendering, onCancel, onEditSubtitle }) => {
               onClick={() => toggle(idx)}
               className={`w-full text-left p-3.5 rounded-xl border-2 transition-all ${
                 isOn
-                  ? 'border-blue-400 bg-blue-50/40 shadow-sm'
+                  ? 'border-indigo-400 bg-indigo-50/40 shadow-sm'
                   : 'border-slate-200 bg-slate-50/50 opacity-60 hover:opacity-80'
               }`}
             >
               <div className="flex items-start gap-3">
                 <div className={`h-6 w-6 rounded-md flex items-center justify-center flex-shrink-0 transition-colors ${
-                  isOn ? 'bg-blue-500 text-white' : 'bg-slate-300 text-slate-500'
+                  isOn ? 'bg-indigo-500 text-white' : 'bg-slate-300 text-slate-500'
                 }`}>
                   {isOn ? <Check className="h-4 w-4" /> : <X className="h-3.5 w-3.5" />}
                 </div>
@@ -193,8 +193,8 @@ const PreviewScreen = ({ jobId, onRendering, onCancel, onEditSubtitle }) => {
                     <span className="font-semibold text-slate-700">({duration.toFixed(1)}s)</span>
                     {isTiktok && seg.priority && (
                       <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
-                        seg.priority === 1 ? 'bg-pink-100 text-pink-700' :
-                        seg.priority === 2 ? 'bg-purple-100 text-purple-700' :
+                        seg.priority === 1 ? 'bg-indigo-100 text-indigo-700' :
+                        seg.priority === 2 ? 'bg-indigo-50 text-indigo-600' :
                         'bg-slate-100 text-slate-600'
                       }`}>
                         {seg.priority === 1 ? '🔥 Hook' : `P${seg.priority}`}
@@ -224,7 +224,7 @@ const PreviewScreen = ({ jobId, onRendering, onCancel, onEditSubtitle }) => {
           className={`w-full flex items-center justify-center gap-2 py-4 rounded-2xl font-semibold text-white shadow-lg transition-all ${
             submitting || stats.count === 0
               ? 'bg-slate-400 cursor-not-allowed'
-              : 'bg-gradient-to-r from-violet-600 to-pink-600 hover:shadow-xl active:scale-[0.98]'
+              : 'bg-indigo-600 hover:bg-indigo-700 active:scale-[0.98]'
           }`}
         >
           {submitting ? (

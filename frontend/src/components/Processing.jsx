@@ -139,31 +139,26 @@ const Processing = ({ jobId, onComplete, onCancel }) => {
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       {/* Status hero */}
-      <div className="bg-white rounded-2xl shadow-sm shadow-slate-200/50 border border-slate-200 overflow-hidden">
+      <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
         <div className="p-6 sm:p-8 text-center">
           {/* Icon */}
-          <div className="relative inline-flex mb-4">
-            <div className={`absolute inset-0 rounded-full blur-2xl opacity-30 ${
-              isSuccess ? 'bg-emerald-400' :
-              isFailure ? 'bg-red-400' :
-              isPending ? 'bg-amber-400' : 'bg-blue-500'
-            }`} />
-            <div className={`relative h-16 w-16 rounded-2xl flex items-center justify-center shadow-lg ${
-              isSuccess ? 'bg-gradient-to-br from-emerald-400 to-green-500 shadow-emerald-500/40' :
-              isFailure ? 'bg-gradient-to-br from-red-400 to-rose-500 shadow-red-500/40' :
-              isPending ? 'bg-gradient-to-br from-amber-400 to-orange-500 shadow-amber-500/40' :
-              'bg-gradient-to-br from-blue-500 to-violet-600 shadow-blue-500/40'
+          <div className="inline-flex mb-4">
+            <div className={`h-14 w-14 rounded-2xl flex items-center justify-center ${
+              isSuccess ? 'bg-emerald-50 text-emerald-600' :
+              isFailure ? 'bg-red-50 text-red-600' :
+              isPending ? 'bg-amber-50 text-amber-600' :
+              'bg-indigo-50 text-indigo-600'
             }`}>
-              {isSuccess ? <CheckCircle className="h-8 w-8 text-white" /> :
-                isFailure ? <AlertTriangle className="h-8 w-8 text-white" /> :
-                isPending ? <Clock className="h-8 w-8 text-white animate-pulse" /> :
-                <Loader2 className="h-8 w-8 text-white animate-spin" />}
+              {isSuccess ? <CheckCircle className="h-7 w-7" /> :
+                isFailure ? <AlertTriangle className="h-7 w-7" /> :
+                isPending ? <Clock className="h-7 w-7 animate-pulse" /> :
+                <Loader2 className="h-7 w-7 animate-spin" />}
             </div>
           </div>
 
           {/* Title */}
-          <h2 className="text-xl sm:text-2xl font-bold text-slate-800">
-            {isSuccess ? 'สำเร็จ!' :
+          <h2 className="text-xl sm:text-2xl font-semibold text-slate-900">
+            {isSuccess ? 'สำเร็จ' :
               isFailure ? 'เกิดข้อผิดพลาด' :
               isPending ? 'รอคิวประมวลผล' : 'กำลังประมวลผล'}
           </h2>
@@ -171,20 +166,20 @@ const Processing = ({ jobId, onComplete, onCancel }) => {
 
           {/* Progress bar */}
           <div className="mt-5">
-            <div className="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden">
+            <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
               <div
-                className={`h-2.5 rounded-full transition-all duration-700 ease-out ${
-                  isSuccess ? 'bg-gradient-to-r from-emerald-400 to-green-500' :
-                  isFailure ? 'bg-gradient-to-r from-red-400 to-rose-500' :
-                  isPending ? 'bg-gradient-to-r from-amber-300 to-amber-400' :
-                  'bg-gradient-to-r from-blue-500 to-violet-600'
+                className={`h-2 rounded-full transition-all duration-700 ease-out ${
+                  isSuccess ? 'bg-emerald-500' :
+                  isFailure ? 'bg-red-500' :
+                  isPending ? 'bg-amber-400' :
+                  'bg-indigo-600'
                 }`}
                 style={{ width: `${Math.max(progress, isPending ? 5 : 0)}%` }}
               />
             </div>
             <div className="flex items-center justify-between mt-2 text-xs">
               <span className="text-slate-400 font-mono">ID: {jobId.substring(0, 8)}</span>
-              <span className="font-bold text-slate-700">{progress}% · ⏱️ {formatTime(elapsedSec)}</span>
+              <span className="font-medium text-slate-600">{progress}% · {formatTime(elapsedSec)}</span>
             </div>
           </div>
         </div>
@@ -201,13 +196,13 @@ const Processing = ({ jobId, onComplete, onCancel }) => {
                   <div key={s.id} className="flex flex-col items-center text-center">
                     <div className={`h-8 w-8 rounded-full flex items-center justify-center text-[10px] font-bold transition-all ${
                       isDone ? 'bg-emerald-500 text-white' :
-                      isCurrent ? 'bg-blue-500 text-white ring-4 ring-blue-100' :
+                      isCurrent ? 'bg-indigo-600 text-white ring-4 ring-indigo-100' :
                       'bg-slate-200 text-slate-400'
                     }`}>
                       {isDone ? '✓' : <Icon className={`h-3.5 w-3.5 ${isCurrent && Icon === Loader2 ? 'animate-spin' : ''}`} />}
                     </div>
                     <p className={`text-[10px] mt-1 leading-tight ${
-                      isCurrent ? 'font-semibold text-blue-700' :
+                      isCurrent ? 'font-medium text-indigo-700' :
                       isDone ? 'text-emerald-600' : 'text-slate-400'
                     }`}>
                       {s.label}

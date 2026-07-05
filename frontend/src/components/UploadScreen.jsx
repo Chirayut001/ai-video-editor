@@ -157,33 +157,27 @@ const UploadScreen = ({ onUploadSuccess }) => {
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       {/* Hero */}
       <div className="text-center mb-2">
-        <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-semibold mb-3">
-          <Zap className="h-3 w-3" />
-          AI-Powered Editing
-        </div>
-        <h2 className="text-2xl sm:text-3xl font-bold text-slate-800">
-          ตัดวิดีโออัตโนมัติ <span className="bg-gradient-to-r from-blue-600 to-violet-600 bg-clip-text text-transparent">ด้วย AI</span>
+        <h2 className="text-2xl sm:text-3xl font-semibold text-slate-900 tracking-tight">
+          ตัดวิดีโออัตโนมัติด้วย AI
         </h2>
-        <p className="text-sm text-slate-500 mt-1.5">อัปโหลด → เลือก preset → ได้วิดีโอที่ตัดเสร็จ</p>
+        <p className="text-sm text-slate-500 mt-2">อัปโหลด → เลือกสไตล์ → ได้วิดีโอที่ตัดเสร็จ</p>
       </div>
 
       {/* Upload area */}
-      <section className="bg-white rounded-2xl shadow-sm shadow-slate-200/50 border border-slate-200 overflow-hidden">
+      <section className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
         <div
           onDragOver={(e) => { e.preventDefault(); setIsDragOver(true); }}
           onDragLeave={() => setIsDragOver(false)}
           onDrop={onDrop}
-          className={`relative p-6 sm:p-8 transition-all ${
-            isDragOver ? 'bg-blue-50' : ''
-          }`}
+          className="relative p-6 sm:p-8"
         >
           {!previewUrl ? (
             <label
               htmlFor="video-input"
-              className={`flex flex-col items-center justify-center border-2 border-dashed rounded-xl py-10 cursor-pointer transition-all ${
+              className={`flex flex-col items-center justify-center border border-dashed rounded-xl py-12 cursor-pointer transition-colors ${
                 isDragOver
-                  ? 'border-blue-400 bg-blue-50/50'
-                  : 'border-slate-300 hover:border-blue-400 hover:bg-slate-50'
+                  ? 'border-indigo-400 bg-indigo-50/50'
+                  : 'border-slate-300 hover:border-indigo-300 hover:bg-slate-50'
               }`}
             >
               <input
@@ -193,12 +187,12 @@ const UploadScreen = ({ onUploadSuccess }) => {
                 onChange={handleFileChange}
                 className="hidden"
               />
-              <div className={`h-14 w-14 rounded-2xl flex items-center justify-center transition-colors ${
-                isDragOver ? 'bg-blue-100' : 'bg-slate-100'
+              <div className={`h-12 w-12 rounded-full flex items-center justify-center transition-colors ${
+                isDragOver ? 'bg-indigo-100 text-indigo-600' : 'bg-slate-100 text-slate-400'
               }`}>
-                <Upload className={`h-6 w-6 ${isDragOver ? 'text-blue-600' : 'text-slate-400'}`} />
+                <Upload className="h-5 w-5" />
               </div>
-              <p className="text-sm font-semibold text-slate-700 mt-3">
+              <p className="text-sm font-medium text-slate-700 mt-3">
                 {isDragOver ? 'ปล่อยไฟล์ที่นี่' : 'คลิกหรือลากไฟล์มาวาง'}
               </p>
               <p className="text-xs text-slate-400 mt-1">
@@ -218,7 +212,7 @@ const UploadScreen = ({ onUploadSuccess }) => {
                 <video src={previewUrl} controls className="w-full h-full object-contain" />
               </div>
               <div className="flex items-center gap-2.5 text-xs text-slate-600">
-                <FileVideo className="h-4 w-4 text-blue-500 flex-shrink-0" />
+                <FileVideo className="h-4 w-4 text-slate-400 flex-shrink-0" />
                 <span className="font-medium truncate flex-1">{file.name}</span>
                 <span className="text-slate-400 flex-shrink-0">{sizeMB} MB</span>
               </div>
@@ -228,10 +222,9 @@ const UploadScreen = ({ onUploadSuccess }) => {
       </section>
 
       {/* Preset chips */}
-      <section className="bg-white rounded-2xl shadow-sm shadow-slate-200/50 border border-slate-200 p-5 sm:p-6">
-        <div className="flex items-center gap-2 mb-3">
-          <MessageSquare className="h-4 w-4 text-blue-500" />
-          <h3 className="text-sm font-semibold text-slate-800">เลือกสไตล์การตัดต่อ</h3>
+      <section className="bg-white rounded-2xl border border-slate-200 p-5 sm:p-6">
+        <div className="flex items-baseline justify-between mb-3">
+          <h3 className="text-sm font-medium text-slate-900">เลือกสไตล์การตัดต่อ</h3>
           <span className="text-xs text-slate-400">เลือก 1 แบบ หรือพิมพ์เอง</span>
         </div>
 
@@ -239,34 +232,29 @@ const UploadScreen = ({ onUploadSuccess }) => {
           {PROMPT_PRESETS.map((preset) => {
             const Icon = preset.icon;
             const isActive = activePresetId === preset.id;
-            const isTikTok = preset.id === 'tiktok';
             return (
               <button
                 key={preset.id}
                 type="button"
                 onClick={() => handlePresetClick(preset)}
-                className={`group flex items-start gap-2 p-2.5 rounded-xl border-2 text-left transition-all ${
+                className={`group flex items-start gap-2 p-2.5 rounded-xl border text-left transition-colors ${
                   isActive
-                    ? isTikTok
-                      ? 'border-pink-500 bg-pink-50'
-                      : 'border-blue-500 bg-blue-50'
-                    : 'border-slate-200 hover:border-slate-300 bg-white hover:bg-slate-50'
+                    ? 'border-indigo-500 bg-indigo-50'
+                    : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50'
                 }`}
               >
                 <div className={`h-7 w-7 rounded-lg flex items-center justify-center flex-shrink-0 transition-colors ${
-                  isActive
-                    ? isTikTok ? 'bg-pink-500 text-white' : 'bg-blue-500 text-white'
-                    : 'bg-slate-100 text-slate-600 group-hover:bg-slate-200'
+                  isActive ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-500 group-hover:bg-slate-200'
                 }`}>
                   <Icon className="h-3.5 w-3.5" />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className={`text-xs font-semibold leading-tight truncate ${
-                    isActive ? (isTikTok ? 'text-pink-700' : 'text-blue-700') : 'text-slate-800'
+                  <p className={`text-xs font-medium leading-tight truncate ${
+                    isActive ? 'text-indigo-700' : 'text-slate-800'
                   }`}>
                     {preset.label}
                   </p>
-                  <p className="text-[10px] text-slate-500 leading-tight truncate mt-0.5">{preset.desc}</p>
+                  <p className="text-[10px] text-slate-400 leading-tight truncate mt-0.5">{preset.desc}</p>
                 </div>
               </button>
             );
@@ -274,32 +262,32 @@ const UploadScreen = ({ onUploadSuccess }) => {
         </div>
 
         <textarea
-          className="w-full p-3 text-sm border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 outline-none transition-all resize-none"
+          className="w-full p-3 text-sm border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 outline-none transition-all resize-none placeholder:text-slate-400"
           rows="3"
-          placeholder="คำสั่งจะปรากฏที่นี่เมื่อคุณเลือก preset · หรือพิมพ์เอง"
+          placeholder="คำสั่งจะปรากฏที่นี่เมื่อเลือกสไตล์ · หรือพิมพ์เอง"
           value={prompt}
           onChange={handlePromptChange}
         />
 
         {/* TikTok options */}
         {isTiktokMode && (
-          <div className="mt-3 p-4 bg-gradient-to-br from-pink-50 to-fuchsia-50 border border-pink-200 rounded-xl space-y-3 animate-in fade-in slide-in-from-top-2 duration-300">
+          <div className="mt-3 p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-3 animate-in fade-in slide-in-from-top-2 duration-300">
             <div className="flex items-center gap-2">
-              <Smartphone className="h-4 w-4 text-pink-600" />
-              <p className="text-xs font-semibold text-pink-700">TikTok/Reels Options</p>
+              <Smartphone className="h-4 w-4 text-slate-500" />
+              <p className="text-xs font-medium text-slate-700">ตัวเลือก TikTok/Reels</p>
             </div>
             <div>
-              <label className="text-xs text-slate-600 block mb-1.5">ความยาวสูงสุด</label>
+              <label className="text-xs text-slate-500 block mb-1.5">ความยาวสูงสุด</label>
               <div className="grid grid-cols-3 gap-2">
                 {[30, 60, 90].map((sec) => (
                   <button
                     key={sec}
                     type="button"
                     onClick={() => setTargetLength(sec)}
-                    className={`px-3 py-2 rounded-lg text-sm border transition-all ${
+                    className={`px-3 py-2 rounded-lg text-sm border transition-colors ${
                       targetLength === sec
-                        ? 'border-pink-500 bg-pink-100 text-pink-700 font-semibold shadow-sm'
-                        : 'border-slate-200 bg-white text-slate-600 hover:border-pink-300'
+                        ? 'border-indigo-500 bg-indigo-50 text-indigo-700 font-medium'
+                        : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
                     }`}
                   >
                     {sec}s
@@ -307,22 +295,20 @@ const UploadScreen = ({ onUploadSuccess }) => {
                 ))}
               </div>
             </div>
-            <p className="text-[11px] text-slate-500 flex items-center gap-1">
-            </p>
           </div>
         )}
 
         {/* Subtitle */}
-        <label className={`flex items-start gap-3 mt-3 p-3.5 rounded-xl border cursor-pointer transition-all ${
+        <label className={`flex items-start gap-3 mt-3 p-3.5 rounded-xl border cursor-pointer transition-colors ${
           burnSubtitle
-            ? 'border-blue-400 bg-blue-50/50'
+            ? 'border-indigo-300 bg-indigo-50/40'
             : 'border-slate-200 hover:bg-slate-50'
         }`}>
           <input
             type="checkbox"
             checked={burnSubtitle}
             onChange={(e) => setBurnSubtitle(e.target.checked)}
-            className="mt-0.5 rounded accent-blue-600"
+            className="mt-0.5 rounded accent-indigo-600"
           />
           <div className="flex-1 text-sm">
             <p className="font-semibold text-slate-800">📝Subtitle อัตโนมัติ</p>
@@ -334,18 +320,17 @@ const UploadScreen = ({ onUploadSuccess }) => {
 
         {/* Preview Mode */}
         <label className={`flex items-start gap-3 mt-3 p-3.5 rounded-xl border cursor-pointer transition-all ${
-          previewMode ? 'border-violet-400 bg-violet-50/50' : 'border-slate-200 hover:bg-slate-50'
+          previewMode ? 'border-indigo-300 bg-indigo-50/40' : 'border-slate-200 hover:bg-slate-50'
         }`}>
           <input
             type="checkbox"
             checked={previewMode}
             onChange={(e) => setPreviewMode(e.target.checked)}
-            className="mt-0.5 rounded accent-violet-600"
+            className="mt-0.5 rounded accent-indigo-600"
           />
           <div className="flex-1 text-sm">
-            <p className="font-semibold text-slate-800">
+            <p className="font-medium text-slate-800">
               👁️ Preview ก่อนตัดต่อจริง
-              <span className="ml-1 px-1.5 py-0.5 bg-violet-100 text-violet-700 rounded text-[10px] font-medium">NEW</span>
             </p>
             <p className="text-xs text-slate-500 mt-0.5">
               ดูช่วงที่ AI เลือกก่อน แล้วยืนยัน/ยกเลิกได้รายช่วง (แม่นยำขึ้น)
@@ -374,7 +359,7 @@ const UploadScreen = ({ onUploadSuccess }) => {
           </div>
           <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
             <div
-              className="h-2 rounded-full bg-gradient-to-r from-blue-500 to-violet-600 transition-all duration-200"
+              className="h-2 rounded-full bg-indigo-600 transition-all duration-200"
               style={{ width: `${uploadProgress}%` }}
             />
           </div>
@@ -385,10 +370,10 @@ const UploadScreen = ({ onUploadSuccess }) => {
       <button
         onClick={handleUpload}
         disabled={loading}
-        className={`w-full flex items-center justify-center gap-2 py-4 rounded-2xl font-semibold text-white shadow-lg transition-all ${
+        className={`w-full flex items-center justify-center gap-2 py-4 rounded-2xl font-semibold text-white transition-colors ${
           loading
-            ? 'bg-slate-400 cursor-not-allowed'
-            : 'bg-gradient-to-r from-blue-600 to-violet-600 hover:shadow-xl hover:shadow-blue-500/30 active:scale-[0.98]'
+            ? 'bg-slate-300 cursor-not-allowed'
+            : 'bg-indigo-600 hover:bg-indigo-700 active:scale-[0.98]'
         }`}
       >
         {loading ? (

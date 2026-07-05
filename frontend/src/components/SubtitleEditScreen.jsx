@@ -77,7 +77,7 @@ const SubtitleEditScreen = ({ jobId, selectedSegments, onRendering, onBack }) =>
   if (loading) {
     return (
       <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-12 text-center">
-        <Loader2 className="h-12 w-12 text-violet-500 animate-spin mx-auto mb-3" />
+        <Loader2 className="h-12 w-12 text-indigo-500 animate-spin mx-auto mb-3" />
         <p className="text-sm text-slate-500">กำลังโหลด subtitle...</p>
       </div>
     );
@@ -117,7 +117,7 @@ const SubtitleEditScreen = ({ jobId, selectedSegments, onRendering, onBack }) =>
           </button>
           <button
             onClick={handleRender}
-            className="flex-1 px-5 py-2.5 bg-gradient-to-r from-violet-600 to-pink-600 text-white rounded-xl font-semibold hover:shadow-lg"
+            className="flex-1 px-5 py-2.5 bg-indigo-600 text-white rounded-xl font-semibold hover:bg-indigo-700 transition-colors"
           >
             ข้าม → Render
           </button>
@@ -130,12 +130,12 @@ const SubtitleEditScreen = ({ jobId, selectedSegments, onRendering, onBack }) =>
     <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
       {/* Hero */}
       <div className="text-center">
-        <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-violet-100 text-violet-700 rounded-full text-xs font-semibold mb-2">
+        <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-indigo-50 text-indigo-600 rounded-full text-xs font-medium mb-2">
           <Type className="h-3.5 w-3.5" />
           แก้ Subtitle
         </div>
-        <h2 className="text-2xl font-bold text-slate-800">
-          ตรวจสอบ + แก้ <span className="bg-gradient-to-r from-violet-600 to-pink-600 bg-clip-text text-transparent">subtitle</span> ก่อน render
+        <h2 className="text-2xl font-semibold text-slate-900">
+          ตรวจสอบ + แก้ <span className="text-indigo-600">subtitle</span> ก่อน render
         </h2>
         <p className="text-sm text-slate-500 mt-1">
           แก้คำที่ฟังผิดได้ — เช่น ชื่อเฉพาะ, ศัพท์เทคนิค
@@ -146,8 +146,8 @@ const SubtitleEditScreen = ({ jobId, selectedSegments, onRendering, onBack }) =>
       <div className="bg-white rounded-2xl border border-slate-200 p-4 flex items-center justify-between gap-3 flex-wrap">
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2">
-            <div className="h-9 w-9 rounded-lg bg-violet-50 flex items-center justify-center">
-              <Sparkles className="h-4 w-4 text-violet-600" />
+            <div className="h-9 w-9 rounded-lg bg-indigo-50 flex items-center justify-center">
+              <Sparkles className="h-4 w-4 text-indigo-600" />
             </div>
             <div>
               <p className="text-[10px] text-slate-500 uppercase font-medium">รวม phrases</p>
@@ -177,7 +177,7 @@ const SubtitleEditScreen = ({ jobId, selectedSegments, onRendering, onBack }) =>
       </div>
 
       {/* Tips */}
-      <div className="bg-blue-50/60 border border-blue-200/70 rounded-xl px-4 py-3 text-xs text-blue-900 leading-relaxed">
+      <div className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-xs text-slate-600 leading-relaxed">
         💡 <strong>เคล็ดลับ:</strong> ตรวจชื่อเฉพาะ (Andrew Huberman, FastAPI, React) และศัพท์เทคนิค —
         ไม่ต้องแก้ทุกบรรทัด แค่บรรทัดที่ผิด
       </div>
@@ -213,7 +213,7 @@ const SubtitleEditScreen = ({ jobId, selectedSegments, onRendering, onBack }) =>
                 className={`w-full px-3 py-2 text-sm rounded-lg border transition-colors outline-none ${
                   isEdited
                     ? 'border-amber-300 bg-white focus:border-amber-500 focus:ring-2 focus:ring-amber-200'
-                    : 'border-slate-200 bg-slate-50/60 focus:border-violet-400 focus:bg-white focus:ring-2 focus:ring-violet-200'
+                    : 'border-slate-200 bg-slate-50/60 focus:border-indigo-400 focus:bg-white focus:ring-2 focus:ring-indigo-200'
                 }`}
                 placeholder="พิมพ์ subtitle..."
               />
@@ -230,7 +230,7 @@ const SubtitleEditScreen = ({ jobId, selectedSegments, onRendering, onBack }) =>
           className={`w-full flex items-center justify-center gap-2 py-4 rounded-2xl font-semibold text-white shadow-lg transition-all ${
             submitting
               ? 'bg-slate-400 cursor-not-allowed'
-              : 'bg-gradient-to-r from-violet-600 to-pink-600 hover:shadow-xl active:scale-[0.98]'
+              : 'bg-indigo-600 hover:bg-indigo-700 active:scale-[0.98]'
           }`}
         >
           {submitting ? (
