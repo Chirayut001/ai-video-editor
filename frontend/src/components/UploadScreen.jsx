@@ -2,27 +2,35 @@ import React, { useState, useEffect } from 'react';
 import {
   Upload, MessageSquare, X, MicOff, BookOpen, Scissors, GraduationCap,
   Mic, Briefcase, Gamepad2, Smartphone, Edit, FileVideo, Zap, Sparkles,
+  Star, Video, ShoppingBag,
 } from 'lucide-react';
 import axios from 'axios';
 import { API_URL } from '../config';
 
+// preset เขียนแบบ "เก็บอะไร / ตัดอะไร" ให้ชัด → AI ตัดสินใจแม่นขึ้น
 const PROMPT_PRESETS = [
-  { id: 'silence',  icon: MicOff,          label: 'ตัดความเงียบ',  desc: 'ลบ filler + pause',
-    text: 'ตัดเฉพาะช่วงเงียบ ช่วง filler (อืม เอ่อ อ่อ) และช่วงพูดซ้ำที่ไม่เพิ่มข้อมูลใหม่ออก เก็บเนื้อหาที่ผู้พูดอธิบายไว้ทั้งหมด' },
+  { id: 'silence',  icon: MicOff,          label: 'ตัดความเงียบ',  desc: 'ลบ filler + ช่วงเงียบ',
+    text: 'ตัดเฉพาะช่วงเงียบ ช่วงหยุดคิดนาน คำ filler (อืม เอ่อ อ่อ เอิ่ม) และช่วงพูดซ้ำคำเดิมโดยไม่เพิ่มข้อมูล — เก็บเนื้อหาที่พูดจริงไว้ครบ ไม่ตัดใจความ' },
   { id: 'essence',  icon: BookOpen,        label: 'เก็บสาระสำคัญ', desc: 'concept + ตัวอย่าง',
-    text: 'เก็บเฉพาะเนื้อหาสาระสำคัญ — แนวคิด/หลักการ คำอธิบาย ตัวอย่าง ตัดเรื่องนอกประเด็น เรื่องเล่าส่วนตัวที่ไม่เกี่ยวข้องออก' },
-  { id: 'shortest', icon: Scissors,        label: 'สรุปสั้นที่สุด', desc: 'key points only',
-    text: 'ตัดให้สั้นที่สุด เก็บเฉพาะ key points สำคัญที่สุด ตัด background, context, ตัวอย่างซ้ำซ้อนและส่วนปลีกย่อยออก' },
+    text: 'เก็บแนวคิด หลักการ คำอธิบาย และตัวอย่างที่ช่วยให้เข้าใจประเด็นหลัก — ตัดการเกริ่นยาว เรื่องเล่านอกประเด็น มุกที่ไม่เกี่ยวข้อง และช่วงพูดวกวน' },
+  { id: 'shortest', icon: Scissors,        label: 'สรุปสั้นที่สุด', desc: 'key points เท่านั้น',
+    text: 'ตัดให้สั้นกระชับที่สุด เก็บเฉพาะประเด็นสำคัญที่สุด (key points) และข้อสรุป — ตัด background การเกริ่น ตัวอย่างเสริม และรายละเอียดปลีกย่อยทั้งหมด' },
   { id: 'tutorial', icon: GraduationCap,   label: 'วิดีโอสอน',     desc: 'step-by-step',
-    text: 'วิดีโอสอน — เก็บการอธิบาย concept และตัวอย่าง/practical steps ตัด rambling นอกเรื่อง และช่วงที่ผู้สอนสับสน/แก้ความผิดพลาดออก' },
+    text: 'วิดีโอสอน — เก็บการอธิบายแนวคิด ขั้นตอนทำจริง (step-by-step) และตัวอย่างที่ลงมือทำ — ตัดการเกริ่นยาว พูดนอกเรื่อง ช่วงผู้สอนสับสน/แก้ที่ผิด และช่วงรอโหลด/เตรียมของ' },
+  { id: 'review',   icon: Star,            label: 'รีวิวสินค้า',   desc: 'ข้อดี-ข้อเสีย + สรุป',
+    text: 'รีวิวสินค้า/บริการ — เก็บข้อดี ข้อเสีย ฟีเจอร์เด่น ราคา ประสบการณ์ใช้จริง และบทสรุป/คำแนะนำ — ตัดการเกริ่นนำยาว unboxing ที่ยืดเยื้อ และการพูดนอกเรื่อง' },
   { id: 'podcast',  icon: Mic,             label: 'Podcast/สัมภาษณ์', desc: 'แก่นการสนทนา',
-    text: 'Podcast/Interview — ตัด small talk ช่วงต้น การทบทวนตอนท้าย และช่วงที่หัวข้อหลุดออกจากประเด็นหลัก เก็บแก่นการสนทนา' },
-  { id: 'meeting',  icon: Briefcase,       label: 'ประชุม', desc: 'decisions + actions',
-    text: 'สรุปการประชุม — เก็บการตัดสินใจ, action items, deadline และประเด็นที่ผู้เข้าร่วมเสนอ ตัด chitchat, การรอระหว่างประชุม และช่วงปัญหาเทคนิค (เสียงหาย รอ load หน้าจอ)' },
-  { id: 'gaming',   icon: Gamepad2,        label: 'Live/Gaming',  desc: 'highlight only',
-    text: 'Live stream/Gaming — เก็บช่วง action สำคัญ (kill, win, react ตลก, milestone) ตัดช่วงเดินทาง, รอ respawn, AFK, loading screen และ chat ที่ไม่เกี่ยวกับ gameplay' },
-  { id: 'tiktok',   icon: Smartphone,      label: 'TikTok/Reels', desc: '9:16 vertical',
-    text: 'เลือก peak moment ที่ดีที่สุดมาเป็นคลิปสั้น มี hook ใน 3 วินาทีแรก ตามด้วยเนื้อหาน่าตื่นเต้น/ตลก/น่าจดจำ เน้นความ engaging ของ short-form video' },
+    text: 'Podcast/สัมภาษณ์ — เก็บแก่นการสนทนา คำตอบสำคัญของแขก ประเด็นน่าสนใจและข้อคิด — ตัด small talk ทักทายช่วงต้น การทวนคำถามซ้ำ ช่วงคุยหลุดประเด็นยาว และการโปรโมท/ขอบคุณตอนท้ายที่ยืดเยื้อ' },
+  { id: 'vlog',     icon: Video,           label: 'Vlog/เล่าเรื่อง', desc: 'ไฮไลต์ + เล่าเรื่อง',
+    text: 'Vlog/เล่าเรื่อง — เก็บช่วงเล่าเรื่องสำคัญ ไฮไลต์ของวัน และช่วงที่มีอารมณ์ร่วม/น่าสนใจ — ตัดช่วงเดินทางเงียบ ๆ ช่วงเตรียมตัว และช่วงที่ไม่มีอะไรเกิดขึ้น' },
+  { id: 'sales',    icon: ShoppingBag,     label: 'ไลฟ์ขายของ',    desc: 'สินค้า + ราคา + โปร',
+    text: 'ไลฟ์ขายของ — เก็บช่วงพรีเซนต์สินค้า จุดขาย ราคา โปรโมชั่น และวิธีสั่งซื้อ — ตัดช่วงทักทาย รอลูกค้า พูดคุยเล่น และช่วงพูดซ้ำที่ไม่มีข้อมูลใหม่' },
+  { id: 'meeting',  icon: Briefcase,       label: 'ประชุม', desc: 'ตัดสินใจ + action',
+    text: 'สรุปประชุม — เก็บการตัดสินใจ ข้อสรุป action item ผู้รับผิดชอบ deadline และประเด็นสำคัญที่ถกกัน — ตัด chitchat ก่อนเริ่ม ช่วงรอคนเข้า การพูดนอกวาระ และปัญหาเทคนิค (เสียงหาย รอแชร์จอ)' },
+  { id: 'gaming',   icon: Gamepad2,        label: 'Live/Gaming',  desc: 'ไฮไลต์เท่านั้น',
+    text: 'Live/เกม — เก็บช่วงไฮไลต์ (kill, ชนะ, จังหวะพลิก, react ตลก, ช่วงลุ้น) และ milestone สำคัญ — ตัดช่วงเดินทาง รอ respawn/loading, AFK, เมนู และช่วงเงียบที่ไม่มีอะไรเกิดขึ้น' },
+  { id: 'tiktok',   icon: Smartphone,      label: 'TikTok/Reels', desc: '9:16 · hook + พีค',
+    text: 'คลิปสั้นแนวตั้ง — เลือกช่วงที่ปังที่สุด เริ่มด้วย hook ดึงความสนใจใน 3 วินาทีแรก ตามด้วยช่วงพีค (ตลก/น่าทึ่ง/น่าจดจำ) — ตัดทุกอย่างที่ยืดเยื้อ เน้นกระชับและ engaging' },
   { id: 'custom',   icon: Edit,            label: 'Custom', desc: 'พิมพ์เอง',
     text: '' },
 ];
