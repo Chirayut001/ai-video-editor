@@ -215,13 +215,6 @@ const Processing = ({ jobId, onComplete, onCancel }) => {
         )}
       </div>
 
-      {/* Info */}
-      {!isFailure && !isSuccess && (
-        <div className="bg-blue-50/60 border border-blue-200 rounded-xl p-3 text-xs text-blue-800">
-          💡 <strong>refresh หน้าได้</strong> — ระบบจำงานไว้ให้ วิดีโอ 20 นาทีใช้เวลาราว 5–10 นาที แล้วจะแสดงผลอัตโนมัติ
-        </div>
-      )}
-
       {/* Cancel/Reset button */}
       {(status === 'PROGRESS' || status === 'PENDING' || isFailure) && onCancel && (
         <button

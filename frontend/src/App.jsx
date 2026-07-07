@@ -113,7 +113,6 @@ function App() {
             </div>
             <div>
               <h1 className="text-base font-semibold text-slate-900 leading-tight">AI Video Smart Editor</h1>
-              <p className="text-[10px] text-slate-400 leading-tight">Powered by Whisper</p>
             </div>
           </div>
           {(jobId || videoUrl) && (
@@ -202,13 +201,6 @@ function App() {
           </div>
         )}
       </main>
-
-      {/* ── Footer ─────────────────────────────────────── */}
-      <footer className="border-t border-slate-200/60 mt-8">
-        <div className="max-w-5xl mx-auto px-4 py-4 text-center text-xs text-slate-500">
-          © 2026 AI Video Smart Editor · ระบบสรุปเนื้อหาวิดีโออัจฉริยะด้วยปัญญาประดิษฐ์
-        </div>
-      </footer>
     </div>
   );
 }
