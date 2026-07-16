@@ -1,0 +1,120 @@
+<mxfile host="app.diagrams.net" version="24.0.0">
+  <diagram name="Architecture Flow" id="arch-flow">
+    <mxGraphModel dx="1400" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1400" pageHeight="1000" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- ===== Legend ===== -->
+        <mxCell id="lg" value="สีเส้น:  🟢 ช่วง1 รับงาน (เร็ว)   🟠 ช่วง2 ประมวลผล (ช้า เบื้องหลัง)   🔵 ช่วง3 รายงานผล (poll)" style="text;html=1;align=left;verticalAlign=middle;fontSize=12;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="40" y="20" width="820" height="30" as="geometry" />
+        </mxCell>
+
+        <!-- ===== Nodes ===== -->
+        <mxCell id="user" value="👤 User&#10;(ผู้ใช้)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=13;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="410" y="70" width="150" height="56" as="geometry" />
+        </mxCell>
+
+        <mxCell id="react" value="Frontend · React&#10;อัปโหลด · poll สถานะ · โชว์ผล&#10;(เก็บ state ใน localStorage)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;fontStyle=1;spacingTop=4;" vertex="1" parent="1">
+          <mxGeometry x="370" y="200" width="230" height="80" as="geometry" />
+        </mxCell>
+
+        <mxCell id="fastapi" value="Backend · FastAPI (:8000)&#10;validate · เขียนไฟล์ · โยนงาน&#10;ตอบสถานะ · rate limit" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;fontStyle=1;spacingTop=4;" vertex="1" parent="1">
+          <mxGeometry x="370" y="370" width="230" height="86" as="geometry" />
+        </mxCell>
+
+        <mxCell id="storage" value="Storage (ชั่วคราว)&#10;storage/{job_id}/&#10;วิดีโอ · เสียง · transcript · ผล&#10;+ audio hash cache · ลบ 7 วัน" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=11;spacingTop=4;" vertex="1" parent="1">
+          <mxGeometry x="50" y="372" width="250" height="86" as="geometry" />
+        </mxCell>
+
+        <mxCell id="redis" value="Redis&#10;คิวงาน + ผลลัพธ์&#10;+ cancel flag" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=12;fontStyle=1;spacingTop=4;" vertex="1" parent="1">
+          <mxGeometry x="730" y="372" width="200" height="86" as="geometry" />
+        </mxCell>
+
+        <!-- Worker container -->
+        <mxCell id="worker" value="Celery Worker  (--pool=solo, ทำทีละงาน)  —  ⑧ Pipeline AI" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;dashed=1;verticalAlign=top;fontSize=13;fontStyle=1;spacingTop=6;container=1;collapsible=0;" vertex="1" parent="1">
+          <mxGeometry x="650" y="530" width="400" height="450" as="geometry" />
+        </mxCell>
+
+        <mxCell id="p_extract" value="FFmpeg — สกัดเสียง&#10;(ลด noise · 16kHz mono)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;" vertex="1" parent="worker">
+          <mxGeometry x="30" y="40" width="340" height="46" as="geometry" />
+        </mxCell>
+        <mxCell id="p_vad" value="Silero VAD — หาช่วงที่มีคนพูด  (GPU)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;" vertex="1" parent="worker">
+          <mxGeometry x="30" y="110" width="340" height="46" as="geometry" />
+        </mxCell>
+        <mxCell id="p_whisper" value="faster-whisper — เสียง→ข้อความ  (GPU)&#10;2-pass + gap-fill + cache" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;" vertex="1" parent="worker">
+          <mxGeometry x="30" y="180" width="340" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="p_gemini" value="☁️ Gemini — เลือกช่วงตัด + แก้/แปล&#10;(fallback หลาย key/model)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=11;" vertex="1" parent="worker">
+          <mxGeometry x="30" y="254" width="340" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="p_render" value="FFmpeg ตัด+ต่อ  +  PyThaiNLP เบิร์นซับไทย" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;" vertex="1" parent="worker">
+          <mxGeometry x="30" y="328" width="340" height="46" as="geometry" />
+        </mxCell>
+        <mxCell id="p_out" value="✅ final_summary.mp4" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=12;fontStyle=1;" vertex="1" parent="worker">
+          <mxGeometry x="80" y="392" width="240" height="44" as="geometry" />
+        </mxCell>
+
+        <!-- ===== Edges: Phase 1 (green) ===== -->
+        <mxCell id="e1" value="① อัปโหลด: วิดีโอ + คำสั่ง" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#82b366;strokeWidth=2;fontSize=11;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="user" target="react">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e2" value="② POST /upload (multipart)" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#82b366;strokeWidth=2;fontSize=11;exitX=0.3;exitY=1;entryX=0.3;entryY=0;" edge="1" parent="1" source="react" target="fastapi">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e5" value="⑤ ตอบ job_id (ทันที)" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#82b366;strokeWidth=2;fontSize=11;dashed=1;exitX=0.5;exitY=0;entryX=0.5;entryY=1;" edge="1" parent="1" source="fastapi" target="react">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e3" value="③ เขียนไฟล์ (stream 1MB)" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#82b366;strokeWidth=2;fontSize=11;exitX=0;exitY=0.4;entryX=1;entryY=0.4;" edge="1" parent="1" source="fastapi" target="storage">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e4" value="④ โยนงานเข้าคิว (apply_async) ⭐" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#82b366;strokeWidth=2;fontSize=11;exitX=1;exitY=0.35;entryX=0;entryY=0.4;" edge="1" parent="1" source="fastapi" target="redis">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- ===== Edges: Phase 2 (orange) ===== -->
+        <mxCell id="e6" value="⑥ pull task (ดึงงาน)" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#d79b00;strokeWidth=2;fontSize=11;exitX=0.4;exitY=1;entryX=0.4;entryY=0;" edge="1" parent="1" source="redis" target="worker">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e9" value="⑨ เขียนผล (SUCCESS/FAIL + progress)" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#d79b00;strokeWidth=2;fontSize=11;dashed=1;exitX=0.8;exitY=0;entryX=0.8;entryY=1;" edge="1" parent="1" source="worker" target="redis">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e7" value="⑦ อ่านวิดีโอ / เขียนไฟล์กลาง" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#d79b00;strokeWidth=2;fontSize=11;exitX=0;exitY=0.2;entryX=0.5;entryY=1;" edge="1" parent="1" source="worker" target="storage">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- pipeline internal (⑧) -->
+        <mxCell id="pe1" value="เสียง .wav" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#82b366;fontSize=10;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="worker" source="p_extract" target="p_vad">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="pe2" value="ช่วงพูด" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#82b366;fontSize=10;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="worker" source="p_vad" target="p_whisper">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="pe3" value="transcript" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#82b366;fontSize=10;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="worker" source="p_whisper" target="p_gemini">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="pe4" value="ช่วงที่ควรเก็บ + ซับ" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#82b366;fontSize=10;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="worker" source="p_gemini" target="p_render">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="pe5" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#82b366;fontSize=10;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="worker" source="p_render" target="p_out">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- ===== Edges: Phase 3 (blue) ===== -->
+        <mxCell id="e10" value="⑩ poll GET /status (ทุก 3 วิ)" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#6c8ebf;strokeWidth=2;fontSize=11;exitX=0.7;exitY=1;entryX=0.7;entryY=0;" edge="1" parent="1" source="react" target="fastapi">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e11" value="⑪ อ่านผล (AsyncResult) ⭐" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#6c8ebf;strokeWidth=2;fontSize=11;exitX=1;exitY=0.75;entryX=0;entryY=0.8;" edge="1" parent="1" source="fastapi" target="redis">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e12" value="⑫ status / progress / URL" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#6c8ebf;strokeWidth=2;fontSize=11;dashed=1;exitX=0.85;exitY=0;entryX=0.85;entryY=1;" edge="1" parent="1" source="fastapi" target="react">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e13" value="⑬ โชว์วิดีโอ + ปุ่มดาวน์โหลด" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#6c8ebf;strokeWidth=2;fontSize=11;dashed=1;exitX=0.85;exitY=0;entryX=0.8;entryY=1;" edge="1" parent="1" source="react" target="user">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
